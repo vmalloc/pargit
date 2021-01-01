@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{bail, format_err, Context, Result};
 use git2::{Branch, BranchType};
 
 pub struct Repository {
@@ -15,7 +15,7 @@ impl Repository {
     }
 
     pub fn push_to_remote(&self, branch_name: &str) -> Result<()> {
-        let branch = self.repo.find_branch(branch_name, BranchType::Local)?;
+        let _branch = self.repo.find_branch(branch_name, BranchType::Local)?;
         let mut remote = self.repo.find_remote("origin")?;
         remote.push(&[format!("{0}:{0}", branch_name)], None)?;
         Ok(())
@@ -34,9 +34,50 @@ impl Repository {
                 );
             }
         }
-        let b = self.create_branch(format!("release/{}", release_name), Some("develop"))?;
+        let b = self.create_branch(self.prefix_release(release_name), Some("develop"))?;
 
         self.switch_to_branch(&b)
+    }
+
+    pub fn release_delete(&self, release_name: Option<&str>) -> Result<()> {
+        let release_name = match release_name {
+            Some(name) => name.to_owned(),
+            None => self
+                .current_branch_name()
+                .context("Cannot get release name from branch name")?
+                .strip_prefix("release/")
+                .ok_or_else(|| format_err!("Current branch is not a release branch"))?
+                .to_owned(),
+        };
+
+        let mut branch = self.find_branch(self.prefix_release(&release_name))?;
+        if branch.name()?.unwrap() == self.current_branch_name()? {
+            self.switch_to_branch_name("develop")
+                .context("Cannot switch to develop branch")?;
+        }
+        branch.delete()?;
+
+        Ok(())
+    }
+
+    fn prefix_release(&self, s: &str) -> String {
+        format!("release/{}", s)
+    }
+
+    fn current_release_name(&self) -> Result<String> {
+        self.current_branch_name()?
+            .strip_prefix("release/")
+            .ok_or_else(|| format_err!("Could not get current release name"))
+            .map(|s| s.to_owned())
+    }
+
+    fn current_branch_name(&self) -> Result<String> {
+        self.repo
+            .head()?
+            .name()
+            .and_then(|n| n.strip_prefix("refs/heads/"))
+            .map(|s| s.to_owned())
+            .ok_or_else(|| format_err!("Could not get current branch name"))
     }
 
     fn has_tag(&self, tag_name: &str) -> Result<bool> {
@@ -45,6 +86,10 @@ impl Repository {
             .tag_names(None)?
             .into_iter()
             .any(|tag| tag == Some(tag_name)))
+    }
+
+    fn switch_to_branch_name(&self, branch_name: &str) -> Result<()> {
+        self.switch_to_branch(&self.find_branch(branch_name)?)
     }
 
     fn switch_to_branch(&self, branch: &Branch) -> Result<()> {
@@ -72,9 +117,6 @@ impl Repository {
     }
 
     fn find_branch(&self, name: impl AsRef<str>) -> Result<Branch> {
-        for branch in self.repo.branches(None)? {
-            println!("* {:?}", branch?.0.name()?);
-        }
         Ok(self.repo.find_branch(name.as_ref(), BranchType::Local)?)
     }
 }

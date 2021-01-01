@@ -23,6 +23,7 @@ fn entry_point(opts: Opts) -> Result<()> {
 
     match opts.command {
         Release(Start { name }) => repo.release_start(&name),
+        Release(Delete { name }) => repo.release_delete(name.as_deref()),
     }
 }
 
