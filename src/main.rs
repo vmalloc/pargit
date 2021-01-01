@@ -1,19 +1,29 @@
 use anyhow::Result;
-use git2::Repository;
 use structopt::StructOpt;
+
+mod commands;
+mod repo;
 
 #[derive(StructOpt)]
 struct Opts {
     #[structopt(long)]
     verbose: bool,
+
+    #[structopt(short = "-p", long = "--path", default_value = ".")]
+    path: String,
+
+    #[structopt(subcommand)]
+    command: commands::Command,
 }
 
 fn entry_point(opts: Opts) -> Result<()> {
-    let repo = Repository::open(".")?;
-    for branch in repo.branches(None)? {
-        println!("{:?}", branch);
+    use commands::{Command::*, ReleaseCommand::*};
+
+    let repo = repo::Repository::on_path(opts.path)?;
+
+    match opts.command {
+        Release(Start { name }) => repo.release_start(&name),
     }
-    Ok(())
 }
 
 fn main() {
@@ -27,7 +37,10 @@ fn main() {
         .init();
 
     if let Err(e) = entry_point(opts) {
-        eprintln!("Error: {:?}", e);
+        eprintln!(
+            "{}",
+            console::style(format!("Error encountered: {:?}", e)).red()
+        );
         std::process::exit(-1);
     }
 }
