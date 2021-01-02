@@ -1,5 +1,5 @@
 use crate::{commands::BumpKind, repo::Repository};
-use anyhow::{bail, format_err, Context, Result};
+use anyhow::{bail, Context, Result};
 use dialoguer::{theme::ColorfulTheme, Select};
 use log::debug;
 use semver::Version;

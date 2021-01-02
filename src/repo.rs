@@ -125,7 +125,9 @@ impl Repository {
         self.find_branch(temp_branch_name)?
             .delete()
             .context("Failed deleting temporary branch")?;
-        self.release_delete(Some(release_name))
+        self.release_delete(Some(release_name))?;
+        info!("Pushing develop branch");
+        self.shell("git push origin develop:develop")
     }
 
     pub fn commit_all(&self, message: &str) -> Result<()> {
@@ -205,7 +207,7 @@ impl Repository {
             .any(|tag| tag == Some(tag_name)))
     }
 
-    fn switch_to_branch_name(&self, branch_name: &str) -> Result<()> {
+    pub fn switch_to_branch_name(&self, branch_name: &str) -> Result<()> {
         self.switch_to_branch(&self.find_branch(branch_name)?)
     }
 
