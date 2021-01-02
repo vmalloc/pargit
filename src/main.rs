@@ -1,9 +1,11 @@
 use anyhow::Result;
+use commands::VersionCommand;
 use log::error;
 use structopt::StructOpt;
 
 mod commands;
 mod repo;
+mod version_management;
 
 #[derive(StructOpt)]
 struct Opts {
@@ -29,6 +31,7 @@ fn entry_point(opts: Opts) -> Result<()> {
         Release(Publish { name }) => repo.release_publish(name),
         Release(Delete { name }) => repo.release_delete(name),
         Release(Finish { name }) => repo.release_finish(name),
+        Version(VersionCommand::Bump(kind)) => crate::version_management::bump_version(&repo, kind),
     }
 }
 

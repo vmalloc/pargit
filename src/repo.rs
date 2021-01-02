@@ -2,7 +2,7 @@ use std::{io::Read, path::Path, process::Stdio};
 
 use anyhow::{bail, format_err, Context, Result};
 use git2::{Branch, BranchType, StatusOptions};
-use log::error;
+use log::{error, info};
 
 pub struct Repository {
     repo: git2::Repository,
@@ -20,7 +20,7 @@ impl Repository {
         Ok(returned)
     }
 
-    fn path(&self) -> &Path {
+    pub fn path(&self) -> &Path {
         let returned = self.repo.path();
         assert_eq!(returned.file_name().unwrap(), ".git");
         returned.parent().unwrap()
@@ -80,12 +80,15 @@ impl Repository {
         let temp_branch_name = format!("in-progress-release-{}", release_name);
 
         let mut temp_branch = self.create_branch(&temp_branch_name, Some("master"))?;
+        info!("Switching to temporary branch");
         self.switch_to_branch_name(&temp_branch_name)?;
+        info!("Merging release branch");
         self.merge_branch_name(
             &release_branch_name,
             &format!("Merge release branch {}", release_name),
         )
         .context("Failed merge")?;
+        info!("Creating tag and pushing to remote master");
         let res = self
             .create_tag(&release_name)
             .and_then(|_| self.shell(format!("git push origin {}:master", temp_branch_name)))
@@ -105,10 +108,13 @@ impl Repository {
             bail!("Failed pushing new release - {:?}", e);
         }
 
+        info!("Push successful. Merging to local master");
         self.switch_to_branch_name("master")?;
         self.merge_branch_name(&temp_branch_name, "Merge temporary release branch")?;
+        info!("Pushing tags");
         self.shell("git push --tags")?;
         self.switch_to_branch_name("develop")?;
+        info!("Merging to develop branch");
         self.merge_branch_name("master", "Merge master branch")?;
 
         Ok(())
@@ -127,12 +133,19 @@ impl Repository {
     }
 
     fn check_pre_release(&self) -> Result<()> {
-        self.shell("cargo check")
-            .context("Failed building project")?;
+        info!("Running pre-release checks...");
+        self.cargo_check()?;
         if self.is_dirty()? {
             bail!("Repository became dirty after build attempt. Perhaps Cargo.lock was not a part of the last commit?");
         }
+
         Ok(())
+    }
+
+    pub fn cargo_check(&self) -> Result<()> {
+        info!("Compiling project (cargo check)...");
+        self.shell("cargo check --workspace --tests")
+            .context("Failed building project")
     }
 
     pub fn release_publish(&self, release_name: Option<String>) -> Result<()> {
