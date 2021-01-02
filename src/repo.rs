@@ -37,6 +37,7 @@ impl Repository {
         if self.has_tag(release_name)? {
             bail!("Release {} already exists", release_name);
         }
+        info!("Creating release branch {}", release_name);
         for branch in self.repo.branches(None)? {
             let branch = branch?.0;
             if let Some(release_name) = branch.name()?.and_then(|s| s.strip_prefix("release/")) {
@@ -53,9 +54,11 @@ impl Repository {
 
     pub fn release_delete(&self, release_name: Option<String>) -> Result<()> {
         let release_name = self.resolve_release_name(release_name)?;
+        let branch_name = self.prefix_release(&release_name);
 
-        let mut branch = self.find_branch(self.prefix_release(&release_name))?;
+        let mut branch = self.find_branch(&branch_name)?;
         if let Ok(upstream) = branch.upstream() {
+            info!("Deleting remote branch");
             let mut parts = upstream.name()?.unwrap().splitn(2, '/');
             let origin_name = parts.next().unwrap();
             let remote_branch_name = parts.next().unwrap();
@@ -66,6 +69,7 @@ impl Repository {
             self.switch_to_branch_name("develop")
                 .context("Cannot switch to develop branch")?;
         }
+        info!("Deleting branch {:?}", branch_name);
         branch.delete()?;
 
         Ok(())
@@ -74,6 +78,7 @@ impl Repository {
     pub fn release_finish(&self, release_name: Option<String>) -> Result<()> {
         let release_name = self.resolve_release_name(release_name)?;
         let release_branch_name = self.prefix_release(&release_name);
+        info!("Finishing release {}", release_name);
         self.switch_to_branch_name(&release_branch_name)?;
         self.check_pre_release()?;
 
@@ -117,7 +122,14 @@ impl Repository {
         info!("Merging to develop branch");
         self.merge_branch_name("master", "Merge master branch")?;
 
-        Ok(())
+        self.find_branch(temp_branch_name)?
+            .delete()
+            .context("Failed deleting temporary branch")?;
+        self.release_delete(Some(release_name))
+    }
+
+    pub fn commit_all(&self, message: &str) -> Result<()> {
+        self.shell(format!("git commit -a -m {:?}", message))
     }
 
     fn merge_branch_name(&self, branch_name: &str, message: &str) -> Result<()> {
