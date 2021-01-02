@@ -1,5 +1,8 @@
+use std::{io::Read, path::Path, process::Stdio};
+
 use anyhow::{bail, format_err, Context, Result};
-use git2::{Branch, BranchType};
+use git2::{Branch, BranchType, StatusOptions};
+use log::error;
 
 pub struct Repository {
     repo: git2::Repository,
@@ -8,17 +11,26 @@ pub struct Repository {
 impl Repository {
     pub fn on_path(p: impl AsRef<str>) -> Result<Self> {
         let repo = git2::Repository::open(p.as_ref())?;
-        if !repo.statuses(None)?.is_empty() {
+
+        let returned = Self { repo };
+
+        if returned.is_dirty()? {
             bail!("Repository is dirty!");
         }
-        Ok(Self { repo })
+        Ok(returned)
     }
 
-    pub fn push_to_remote(&self, branch_name: &str) -> Result<()> {
-        let _branch = self.repo.find_branch(branch_name, BranchType::Local)?;
-        let mut remote = self.repo.find_remote("origin")?;
-        remote.push(&[format!("{0}:{0}", branch_name)], None)?;
-        Ok(())
+    fn path(&self) -> &Path {
+        let returned = self.repo.path();
+        assert_eq!(returned.file_name().unwrap(), ".git");
+        returned.parent().unwrap()
+    }
+
+    fn is_dirty(&self) -> Result<bool> {
+        Ok(!self
+            .repo
+            .statuses(Some(StatusOptions::new().include_ignored(false)))?
+            .is_empty())
     }
 
     pub fn release_start(&self, release_name: &str) -> Result<()> {
@@ -39,18 +51,17 @@ impl Repository {
         self.switch_to_branch(&b)
     }
 
-    pub fn release_delete(&self, release_name: Option<&str>) -> Result<()> {
-        let release_name = match release_name {
-            Some(name) => name.to_owned(),
-            None => self
-                .current_branch_name()
-                .context("Cannot get release name from branch name")?
-                .strip_prefix("release/")
-                .ok_or_else(|| format_err!("Current branch is not a release branch"))?
-                .to_owned(),
-        };
+    pub fn release_delete(&self, release_name: Option<String>) -> Result<()> {
+        let release_name = self.resolve_release_name(release_name)?;
 
         let mut branch = self.find_branch(self.prefix_release(&release_name))?;
+        if let Ok(upstream) = branch.upstream() {
+            let mut parts = upstream.name()?.unwrap().splitn(2, '/');
+            let origin_name = parts.next().unwrap();
+            let remote_branch_name = parts.next().unwrap();
+            self.shell(format!("git push {} :{}", origin_name, remote_branch_name))?;
+        }
+
         if branch.name()?.unwrap() == self.current_branch_name()? {
             self.switch_to_branch_name("develop")
                 .context("Cannot switch to develop branch")?;
@@ -58,6 +69,87 @@ impl Repository {
         branch.delete()?;
 
         Ok(())
+    }
+
+    pub fn release_finish(&self, release_name: Option<String>) -> Result<()> {
+        let release_name = self.resolve_release_name(release_name)?;
+        let release_branch_name = self.prefix_release(&release_name);
+        self.switch_to_branch_name(&release_branch_name)?;
+        self.check_pre_release()?;
+
+        let temp_branch_name = format!("in-progress-release-{}", release_name);
+
+        let mut temp_branch = self.create_branch(&temp_branch_name, Some("master"))?;
+        self.switch_to_branch_name(&temp_branch_name)?;
+        self.merge_branch_name(
+            &release_branch_name,
+            &format!("Merge release branch {}", release_name),
+        )
+        .context("Failed merge")?;
+        let res = self
+            .create_tag(&release_name)
+            .and_then(|_| self.shell(format!("git push origin {}:master", temp_branch_name)))
+            .context("Failed tag and push");
+
+        // we try to push the merged master first. If it succeeds, it means we won the release
+        if let Err(e) = res {
+            error!("Failed pushing to master. Rolling back changes...");
+            let _ = self
+                .delete_tag(&release_name)
+                .map_err(|e| error!("Failed deleting tag: {:?}", e));
+            let _ = temp_branch
+                .delete()
+                .map_err(|e| error!("Failed deleting temporary branch: {:?}", e));
+
+            let _ = self.switch_to_branch_name(&release_branch_name);
+            bail!("Failed pushing new release - {:?}", e);
+        }
+
+        self.switch_to_branch_name("master")?;
+        self.merge_branch_name(&temp_branch_name, "Merge temporary release branch")?;
+        self.shell("git push --tags")?;
+        self.switch_to_branch_name("develop")?;
+        self.merge_branch_name("master", "Merge master branch")?;
+
+        Ok(())
+    }
+
+    fn merge_branch_name(&self, branch_name: &str, message: &str) -> Result<()> {
+        self.shell(format!("git merge {} -m {:?}", branch_name, message))
+    }
+
+    fn delete_tag(&self, tag_name: &str) -> Result<()> {
+        self.shell(format!("git tag -d {}", tag_name))
+    }
+
+    fn create_tag(&self, tag_name: &str) -> Result<()> {
+        self.shell(format!("git tag -a -m {0} {0}", tag_name))
+    }
+
+    fn check_pre_release(&self) -> Result<()> {
+        self.shell("cargo check")
+            .context("Failed building project")?;
+        if self.is_dirty()? {
+            bail!("Repository became dirty after build attempt. Perhaps Cargo.lock was not a part of the last commit?");
+        }
+        Ok(())
+    }
+
+    pub fn release_publish(&self, release_name: Option<String>) -> Result<()> {
+        let release_name = self.resolve_release_name(release_name)?;
+        self.shell(format!(
+            "git push -u origin {0}:{0}",
+            self.prefix_release(&release_name)
+        ))
+    }
+
+    fn resolve_release_name(&self, release_name: Option<String>) -> Result<String> {
+        Ok(match release_name {
+            Some(name) => name,
+            None => self
+                .current_release_name()
+                .context("Cannot get release name from branch name")?,
+        })
     }
 
     fn prefix_release(&self, s: &str) -> String {
@@ -118,5 +210,21 @@ impl Repository {
 
     fn find_branch(&self, name: impl AsRef<str>) -> Result<Branch> {
         Ok(self.repo.find_branch(name.as_ref(), BranchType::Local)?)
+    }
+
+    fn shell(&self, cmd: impl AsRef<str>) -> Result<()> {
+        let mut child = std::process::Command::new("sh")
+            .arg("-c")
+            .arg(cmd.as_ref())
+            .current_dir(self.path())
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .spawn()?;
+        if !child.wait()?.success() {
+            let mut buf = Vec::new();
+            child.stderr.unwrap().read_to_end(&mut buf)?;
+            bail!("Git failed: {:?}", String::from_utf8_lossy(&buf));
+        }
+        Ok(())
     }
 }

@@ -8,5 +8,7 @@ pub enum Command {
 #[derive(StructOpt)]
 pub enum ReleaseCommand {
     Start { name: String },
+    Publish { name: Option<String> },
     Delete { name: Option<String> },
+    Finish { name: Option<String> },
 }
