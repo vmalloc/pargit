@@ -1,4 +1,5 @@
 use anyhow::Result;
+use log::error;
 use structopt::StructOpt;
 
 mod commands;
@@ -6,8 +7,8 @@ mod repo;
 
 #[derive(StructOpt)]
 struct Opts {
-    #[structopt(long)]
-    verbose: bool,
+    #[structopt(short = "-v", parse(from_occurrences))]
+    verbosity: usize,
 
     #[structopt(short = "-p", long = "--path", default_value = ".")]
     path: String,
@@ -17,6 +18,8 @@ struct Opts {
 }
 
 fn entry_point(opts: Opts) -> Result<()> {
+    log::debug!("Starting...");
+
     use commands::{Command::*, ReleaseCommand::*};
 
     let repo = repo::Repository::on_path(opts.path)?;
@@ -32,18 +35,18 @@ fn entry_point(opts: Opts) -> Result<()> {
 fn main() {
     let opts = Opts::from_args();
     env_logger::Builder::new()
-        .filter_level(if opts.verbose {
-            log::LevelFilter::Debug
-        } else {
-            log::LevelFilter::Error
+        .filter_level(match opts.verbosity {
+            0 => log::LevelFilter::Error,
+            1 => log::LevelFilter::Warn,
+            2 => log::LevelFilter::Info,
+            _ => log::LevelFilter::Debug,
         })
+        .format_timestamp(None)
+        .format_module_path(false)
         .init();
 
     if let Err(e) = entry_point(opts) {
-        eprintln!(
-            "{}",
-            console::style(format!("Error encountered: {:?}", e)).red()
-        );
+        error!("{:?}", e);
         std::process::exit(-1);
     }
 }
