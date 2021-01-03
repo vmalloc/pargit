@@ -1,4 +1,6 @@
-![logo](https://github.com/vmalloc/pargit/blob/develop/p-logo.png?raw=true)
+<p align="center">
+  <img src="https://github.com/vmalloc/pargit/blob/develop/p-logo.png?raw=true">
+</p>
 
 # Overview
 
