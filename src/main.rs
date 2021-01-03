@@ -27,7 +27,7 @@ fn entry_point(opts: Opts) -> Result<()> {
     let repo = repo::Repository::on_path(opts.path)?;
 
     match opts.command {
-        Release(Start { name }) => repo.release_start(&name),
+        Release(Start { spec }) => crate::version_management::release_start(&repo, spec),
         Release(Publish { name }) => repo.release_publish(name),
         Release(Delete { name }) => repo.release_delete(name),
         Release(Finish { name }) => repo.release_finish(name),

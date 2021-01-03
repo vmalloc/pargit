@@ -157,7 +157,7 @@ impl Repository {
     }
 
     pub fn cargo_check(&self) -> Result<()> {
-        info!("Compiling project (cargo check)...");
+        info!("Compiling project to ensure consistency (cargo check)...");
         self.shell("cargo check --workspace --tests")
             .context("Failed building project")
     }

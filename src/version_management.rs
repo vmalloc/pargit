@@ -1,4 +1,7 @@
-use crate::{commands::BumpKind, repo::Repository};
+use crate::{
+    commands::{BumpKind, VersionSpec},
+    repo::Repository,
+};
 use anyhow::{bail, Context, Result};
 use dialoguer::{theme::ColorfulTheme, Select};
 use log::debug;
@@ -10,7 +13,35 @@ use std::{
 };
 use toml_edit::{value, Document};
 
+pub fn release_start(repo: &Repository, spec: VersionSpec) -> Result<()> {
+    let (new_version, toml_bump) = match spec {
+        VersionSpec::Exact(v) => (v, None),
+        VersionSpec::Bump(kind) => {
+            let toml = deduce_cargo_toml_version(repo)?;
+            (next_version(&toml.2, kind), Some((toml, kind)))
+        }
+    };
+
+    repo.release_start(&new_version.to_string())?;
+
+    if let Some((toml, kind)) = toml_bump {
+        bump_cargo_tomls(repo, vec![toml], kind)?
+    }
+    Ok(())
+}
+
 pub fn release_version(repo: &Repository, bump_kind: BumpKind) -> Result<()> {
+    let cargo_tomls = vec![deduce_cargo_toml_version(repo)?];
+    let new_version = next_version(&cargo_tomls[0].2, bump_kind);
+    let release_name = new_version.to_string();
+
+    repo.release_start(&release_name)?;
+    bump_cargo_tomls(repo, cargo_tomls, bump_kind)?;
+    repo.commit_all("Bump version")?;
+    repo.release_finish(None)
+}
+
+fn deduce_cargo_toml_version(repo: &Repository) -> Result<(PathBuf, Document, Version)> {
     let cargo_tomls = find_cargo_tomls(repo.path())?;
     let index = if cargo_tomls.len() > 1 {
         let selections = cargo_tomls
@@ -32,14 +63,7 @@ pub fn release_version(repo: &Repository, bump_kind: BumpKind) -> Result<()> {
         0
     };
 
-    let cargo_tomls: Vec<_> = cargo_tomls.into_iter().skip(index).take(1).collect();
-    let new_version = next_version(&cargo_tomls[0].2, bump_kind);
-    let release_name = new_version.to_string();
-
-    repo.release_start(&release_name)?;
-    bump_cargo_tomls(repo, cargo_tomls, bump_kind)?;
-    repo.commit_all("Bump version")?;
-    repo.release_finish(None)
+    Ok(cargo_tomls.into_iter().nth(index).unwrap())
 }
 
 pub fn bump_version(repo: &Repository, bump_kind: BumpKind) -> Result<()> {
