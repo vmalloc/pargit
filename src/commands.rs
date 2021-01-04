@@ -31,7 +31,10 @@ pub enum ReleaseCommand {
 
 #[derive(StructOpt)]
 pub enum FeatureCommand {
+    Start { name: String },
+    Publish { name: Option<String> },
     Delete { name: Option<String> },
+    Finish { name: Option<String> },
 }
 
 #[derive(StructOpt)]

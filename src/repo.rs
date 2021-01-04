@@ -2,7 +2,7 @@ use std::{io::Read, path::Path, process::Stdio};
 
 use anyhow::{bail, format_err, Context, Result};
 use git2::{Branch, BranchType, StatusOptions};
-use log::{error, info};
+use log::{debug, error, info};
 
 pub struct Repository {
     repo: git2::Repository,
@@ -37,30 +37,28 @@ impl Repository {
         if self.has_tag(release_name)? {
             bail!("Release {} already exists", release_name);
         }
-        info!("Creating release branch {}", release_name);
-        for branch in self.repo.branches(None)? {
-            let branch = branch?.0;
-            if let Some(release_name) = branch.name()?.and_then(|s| s.strip_prefix("release/")) {
-                bail!(
-                    "Release {} already in progress. Finish it first",
-                    release_name
-                );
-            }
+        self.pargit_start("release", release_name, "develop")
+    }
+    pub fn pargit_start(&self, branch_type: &str, name: &str, start_point: &str) -> Result<()> {
+        info!("Creating {} branch {}", branch_type, name);
+        let branch_name = self.prefix(branch_type, name);
+        if self.find_branch(branch_name).is_ok() {
+            bail!(
+                "{} {} already in progress. Finish it first",
+                branch_type,
+                name
+            );
         }
-        let b = self.create_branch(self.prefix_release(release_name), Some("develop"))?;
+        let b = self.create_branch(self.prefix(branch_type, name), Some(start_point))?;
 
         self.switch_to_branch(&b)
     }
 
     pub fn release_delete(&self, release_name: Option<String>) -> Result<()> {
-        self.delete("release", release_name)
+        self.pargit_delete("release", release_name)
     }
 
-    pub fn feature_delete(&self, feature_name: Option<String>) -> Result<()> {
-        self.delete("feature", feature_name)
-    }
-
-    fn delete(&self, object_type: &str, name: Option<String>) -> Result<()> {
+    pub fn pargit_delete(&self, object_type: &str, name: Option<String>) -> Result<()> {
         let release_name = self.resolve_name(object_type, name)?;
         let branch_name = self.prefix(object_type, &release_name);
 
@@ -170,12 +168,26 @@ impl Repository {
             .context("Failed building project")
     }
 
-    pub fn release_publish(&self, release_name: Option<String>) -> Result<()> {
-        let release_name = self.resolve_release_name(release_name)?;
+    pub fn pargit_publish(&self, object_type: &str, name: Option<String>) -> Result<()> {
+        let name = self.resolve_name(object_type, name)?;
         self.shell(format!(
             "git push -u origin {0}:{0}",
-            self.prefix_release(&release_name)
+            self.prefix(object_type, &name)
         ))
+    }
+
+    pub fn pargit_finish(
+        &self,
+        object_type: &str,
+        name: Option<String>,
+        dest_branch: &str,
+    ) -> Result<()> {
+        let name = self.resolve_name(object_type, name)?;
+        debug!("Switching to branch {}", dest_branch);
+        self.switch_to_branch_name(dest_branch)?;
+        let branch_name = self.prefix(object_type, &name);
+        debug!("Merging {}", branch_name);
+        self.merge_branch_name(&branch_name, &format!("Merge {}", branch_name))
     }
 
     fn resolve_release_name(&self, release_name: Option<String>) -> Result<String> {
