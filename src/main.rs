@@ -22,18 +22,19 @@ struct Opts {
 fn entry_point(opts: Opts) -> Result<()> {
     log::debug!("Starting...");
 
-    use commands::{Command::*, ReleaseCommand::*};
+    use commands::{Command::*, FeatureCommand, ReleaseCommand::*};
 
     let repo = repo::Repository::on_path(opts.path)?;
 
     match opts.command {
         Release(Start { spec }) => crate::version_management::release_start(&repo, spec),
         Release(Publish { name }) => repo.release_publish(name),
-        Release(Delete { name }) => repo.release_delete(name),
+        Release(ReleaseCommand::Delete { name }) => repo.release_delete(name),
         Release(Finish { name }) => repo.release_finish(name),
         Release(ReleaseCommand::Version(kind)) => {
             crate::version_management::release_version(&repo, kind)
         }
+        Feature(FeatureCommand::Delete { name }) => repo.feature_delete(name),
         commands::Command::Version(VersionCommand::Bump(kind)) => {
             crate::version_management::bump_version(&repo, kind)
         }

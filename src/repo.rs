@@ -53,8 +53,16 @@ impl Repository {
     }
 
     pub fn release_delete(&self, release_name: Option<String>) -> Result<()> {
-        let release_name = self.resolve_release_name(release_name)?;
-        let branch_name = self.prefix_release(&release_name);
+        self.delete("release", release_name)
+    }
+
+    pub fn feature_delete(&self, feature_name: Option<String>) -> Result<()> {
+        self.delete("feature", feature_name)
+    }
+
+    fn delete(&self, object_type: &str, name: Option<String>) -> Result<()> {
+        let release_name = self.resolve_name(object_type, name)?;
+        let branch_name = self.prefix(object_type, &release_name);
 
         let mut branch = self.find_branch(&branch_name)?;
         if let Ok(upstream) = branch.upstream() {
@@ -171,21 +179,29 @@ impl Repository {
     }
 
     fn resolve_release_name(&self, release_name: Option<String>) -> Result<String> {
-        Ok(match release_name {
+        self.resolve_name("release", release_name)
+    }
+
+    fn resolve_name(&self, object_type: &str, name: Option<String>) -> Result<String> {
+        Ok(match name {
             Some(name) => name,
             None => self
-                .current_release_name()
+                .current_name(object_type)
                 .context("Cannot get release name from branch name")?,
         })
     }
 
     fn prefix_release(&self, s: &str) -> String {
-        format!("release/{}", s)
+        self.prefix("release", s)
     }
 
-    fn current_release_name(&self) -> Result<String> {
+    fn prefix(&self, object_type: &str, s: &str) -> String {
+        format!("{}/{}", object_type, s)
+    }
+
+    fn current_name(&self, object_type: &str) -> Result<String> {
         self.current_branch_name()?
-            .strip_prefix("release/")
+            .strip_prefix(&format!("{}/", object_type))
             .ok_or_else(|| format_err!("Could not get current release name"))
             .map(|s| s.to_owned())
     }

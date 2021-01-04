@@ -7,6 +7,7 @@ use strum_macros::EnumString;
 #[derive(StructOpt)]
 pub enum Command {
     Release(ReleaseCommand),
+    Feature(FeatureCommand),
     Version(VersionCommand),
 }
 
@@ -26,6 +27,11 @@ pub enum ReleaseCommand {
         name: Option<String>,
     },
     Version(BumpKind),
+}
+
+#[derive(StructOpt)]
+pub enum FeatureCommand {
+    Delete { name: Option<String> },
 }
 
 #[derive(StructOpt)]
