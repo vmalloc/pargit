@@ -18,9 +18,9 @@ Pargit aims to be an opinionated alternative to `git-flow`, while providing bett
 
 ## Main Features
 
-* **Atomic Releases** - when attempting to publish a release that conflicts with the upstream repo, tools like `git-flow` fail and leave you with a half-published release. Pargit fixes that by rolling back the release in a clean way and getting rid of the temporary tag created. When multiple users collaborate with pargit.
+* **Atomic Releases** - when attempting to publish a release that conflicts with the upstream repo, tools like `git-flow` fail and leave you with a half-published release. Pargit fixes that by rolling back the release in a clean way and getting rid of the temporary tag created.
 * **Project-Internal Versioning Logic** - pargit includes pre-release checks aimed at minimizing pain and errors. For Rust projects, it checks `Cargo.lock` correctness, performs version bumps for you, and prompts you to choose the project being bumped in multi-crate workspaces.
-* **Saner Defaults** - pargit aims to make sense, deducing parameters when possible and using sane defaults for dealing with project workflow.
+* **Saner Defaults** - pargit aims to make sense, deducing parameters when possible and using sane defaults for dealing with project workflow. Unlike `git-flow`, pargit will not prompt you twice for a commit message as a part of releasing a version 🤦‍♂️
 
 # Quickstart
 ## Features
