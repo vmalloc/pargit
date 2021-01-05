@@ -104,7 +104,14 @@ fn next_version(version: &Version, bump_kind: BumpKind) -> Version {
 
 fn find_cargo_tomls(path: &Path) -> Result<Vec<(PathBuf, Document, Version)>> {
     let mut returned = Vec::new();
-    for entry in walkdir::WalkDir::new(path) {
+    for entry in walkdir::WalkDir::new(path)
+        .contents_first(false)
+        .into_iter()
+        .filter_entry(|entry| {
+            !(entry.path().is_dir()
+                && entry.path().file_name().map(|s| s.to_string_lossy()) == Some("target".into()))
+        })
+    {
         let entry = entry?;
         let path = entry.path();
 
