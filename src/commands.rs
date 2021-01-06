@@ -9,6 +9,7 @@ pub enum Command {
     Release(ReleaseCommand),
     Feature(FeatureCommand),
     Version(VersionCommand),
+    Cleanup,
 }
 
 #[derive(StructOpt)]

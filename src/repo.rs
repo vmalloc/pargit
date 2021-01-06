@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::{bail, format_err, Context, Result};
-use git2::{Branch, BranchType, StatusOptions};
+use git2::{Branch, BranchType, Oid, StatusOptions};
 use log::{debug, error, info};
 
 pub struct Repository {
@@ -197,6 +197,49 @@ impl Repository {
         let branch_name = self.prefix(object_type, &name);
         debug!("Merging {}", branch_name);
         self.merge_branch_name(&branch_name, &format!("Merge {}", branch_name))
+    }
+
+    pub fn pargit_cleanup(&self) -> Result<()> {
+        self.git_fetch("origin")?;
+        let develop = self.find_develop_branch()?;
+        let remote_develop = develop.upstream()?.into_reference().peel_to_commit()?.id();
+        let develop = develop.get().peel_to_commit()?.id();
+
+        // we only cleanup if remote_develop is ahead of develop and  contains it
+        if develop != remote_develop && self.is_merged(develop, remote_develop)? {
+            info!("Remote develop branch is ahead of local develop branch");
+            for branch in self.repo.branches(Some(BranchType::Local))? {
+                let (mut branch, _) = branch?;
+                let name = branch.name()?.unwrap();
+                if name.starts_with("feature/")
+                    || name.starts_with("bugfix/")
+                    || name.starts_with("release/")
+                {
+                    let branch_commit = branch.get().peel_to_commit()?.id();
+                    if self.is_merged(branch_commit, remote_develop)?
+                        && !self.is_merged(branch_commit, develop)?
+                    {
+                        info!("Branch {} is not merged into local develop, but is merged to remote develop. Deleting...", name);
+                        branch.delete()?;
+                    }
+                }
+            }
+        } else {
+            info!("Remote develop branch is not ahead of current branch. Not doing anything");
+        }
+        Ok(())
+    }
+
+    fn is_merged(&self, commit: Oid, branch: Oid) -> Result<bool> {
+        Ok(self.repo.merge_base(commit, branch)? == commit)
+    }
+
+    fn find_develop_branch(&self) -> Result<Branch> {
+        self.find_branch("develop")
+    }
+
+    fn git_fetch(&self, remote_name: &str) -> Result<()> {
+        self.shell(format!("git fetch {}", remote_name))
     }
 
     fn resolve_release_name(&self, release_name: Option<String>) -> Result<String> {

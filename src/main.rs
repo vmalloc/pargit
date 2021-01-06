@@ -44,6 +44,7 @@ fn entry_point(opts: Opts) -> Result<()> {
         commands::Command::Version(VersionCommand::Bump(kind)) => {
             crate::version_management::bump_version(&repo, kind)
         }
+        Cleanup => repo.pargit_cleanup(),
     }
 }
 
