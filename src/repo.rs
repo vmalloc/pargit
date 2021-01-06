@@ -1,4 +1,7 @@
-use std::{io::Read, path::Path, process::Stdio};
+use std::{
+    path::Path,
+    process::{Output, Stdio},
+};
 
 use anyhow::{bail, format_err, Context, Result};
 use git2::{Branch, BranchType, StatusOptions};
@@ -61,13 +64,14 @@ impl Repository {
     pub fn pargit_delete(&self, object_type: &str, name: Option<String>) -> Result<()> {
         let release_name = self.resolve_name(object_type, name)?;
         let branch_name = self.prefix(object_type, &release_name);
+        info!("Deleting {}...", branch_name);
 
         let mut branch = self.find_branch(&branch_name)?;
         if let Ok(upstream) = branch.upstream() {
-            info!("Deleting remote branch");
             let mut parts = upstream.name()?.unwrap().splitn(2, '/');
             let origin_name = parts.next().unwrap();
             let remote_branch_name = parts.next().unwrap();
+            info!("Deleting remote branch {}", remote_branch_name);
             self.shell(format!("git push {} :{}", origin_name, remote_branch_name))?;
         }
 
@@ -170,10 +174,15 @@ impl Repository {
 
     pub fn pargit_publish(&self, object_type: &str, name: Option<String>) -> Result<()> {
         let name = self.resolve_name(object_type, name)?;
-        self.shell(format!(
-            "git push -u origin {0}:{0}",
-            self.prefix(object_type, &name)
-        ))
+        let branch_name = self.prefix(object_type, &name);
+        info!("Pushing {} to origin...", branch_name);
+        let output = self.shell_output(format!("git push -u origin {0}:{0}", branch_name))?;
+        for line in String::from_utf8_lossy(&output.stderr).lines() {
+            if line.starts_with("remote:") {
+                info!("{}", line);
+            }
+        }
+        Ok(())
     }
 
     pub fn pargit_finish(
@@ -268,18 +277,21 @@ impl Repository {
     }
 
     fn shell(&self, cmd: impl AsRef<str>) -> Result<()> {
-        let mut child = std::process::Command::new("sh")
+        self.shell_output(cmd).map(drop)
+    }
+
+    fn shell_output(&self, cmd: impl AsRef<str>) -> Result<Output> {
+        let child = std::process::Command::new("sh")
             .arg("-c")
             .arg(cmd.as_ref())
             .current_dir(self.path())
-            .stdout(Stdio::null())
+            .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;
-        if !child.wait()?.success() {
-            let mut buf = Vec::new();
-            child.stderr.unwrap().read_to_end(&mut buf)?;
-            bail!("Git failed: {:?}", String::from_utf8_lossy(&buf));
+        let output = child.wait_with_output()?;
+        if !output.status.success() {
+            bail!("Git failed: {:?}", String::from_utf8_lossy(&output.stderr));
         }
-        Ok(())
+        Ok(output)
     }
 }
