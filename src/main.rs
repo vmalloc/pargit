@@ -12,6 +12,9 @@ struct Opts {
     #[structopt(short = "-v", parse(from_occurrences))]
     verbosity: usize,
 
+    #[structopt(short = "-q", parse(from_occurrences))]
+    quietness: usize,
+
     #[structopt(short = "-p", long = "--path", default_value = ".")]
     path: String,
 
@@ -47,7 +50,7 @@ fn entry_point(opts: Opts) -> Result<()> {
 fn main() {
     let opts = Opts::from_args();
     env_logger::Builder::new()
-        .filter_level(match opts.verbosity {
+        .filter_level(match (opts.verbosity + 2).saturating_sub(opts.quietness) {
             0 => log::LevelFilter::Error,
             1 => log::LevelFilter::Warn,
             2 => log::LevelFilter::Info,
