@@ -1,11 +1,10 @@
+use anyhow::{bail, format_err, Context, Result};
+use git2::{Branch, BranchType, Oid, StatusOptions};
+use log::{debug, error, info};
 use std::{
     path::Path,
     process::{Output, Stdio},
 };
-
-use anyhow::{bail, format_err, Context, Result};
-use git2::{Branch, BranchType, Oid, StatusOptions};
-use log::{debug, error, info};
 
 pub struct Repository {
     repo: git2::Repository,

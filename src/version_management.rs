@@ -2,7 +2,7 @@ use crate::{
     commands::{BumpKind, VersionSpec},
     repo::Repository,
 };
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, format_err, Context, Result};
 use dialoguer::{theme::ColorfulTheme, Select};
 use log::debug;
 use semver::Version;
@@ -63,7 +63,10 @@ fn deduce_cargo_toml_version(repo: &Repository) -> Result<(PathBuf, Document, Ve
         0
     };
 
-    Ok(cargo_tomls.into_iter().nth(index).unwrap())
+    Ok(cargo_tomls
+        .into_iter()
+        .nth(index)
+        .ok_or_else(|| format_err!("Could not find Cargo.toml files to deduce version from"))?)
 }
 
 pub fn bump_version(repo: &Repository, bump_kind: BumpKind) -> Result<()> {
