@@ -93,7 +93,7 @@ impl Repository {
 
         let temp_branch_name = format!("in-progress-release-{}", release_name);
 
-        let mut temp_branch = self.create_branch(&temp_branch_name, Some("master"))?;
+        self.create_branch(&temp_branch_name, Some("master"))?;
         info!("Switching to temporary branch");
         self.switch_to_branch_name(&temp_branch_name)?;
         info!("Merging release branch");
@@ -114,11 +114,12 @@ impl Repository {
             let _ = self
                 .delete_tag(&release_name)
                 .map_err(|e| error!("Failed deleting tag: {:?}", e));
-            let _ = temp_branch
-                .delete()
+            let _ = self.switch_to_branch_name(&release_branch_name);
+
+            let _ = self
+                .delete_branch_name(&temp_branch_name)
                 .map_err(|e| error!("Failed deleting temporary branch: {:?}", e));
 
-            let _ = self.switch_to_branch_name(&release_branch_name);
             bail!("Failed pushing new release - {:?}", e);
         }
 
@@ -147,6 +148,10 @@ impl Repository {
         self.shell(format!("git merge {} -m {:?}", branch_name, message))
     }
 
+    fn delete_branch_name(&self, branch_name: &str) -> Result<()> {
+        Ok(self.find_branch(branch_name)?.delete()?)
+    }
+
     fn delete_tag(&self, tag_name: &str) -> Result<()> {
         self.shell(format!("git tag -d {}", tag_name))
     }
@@ -157,18 +162,27 @@ impl Repository {
 
     fn check_pre_release(&self) -> Result<()> {
         info!("Running pre-release checks...");
-        self.cargo_check()?;
-        if self.is_dirty()? {
-            bail!("Repository became dirty after build attempt. Perhaps Cargo.lock was not a part of the last commit?");
+
+        self.compile_project()
+    }
+
+    pub fn compile_project(&self) -> Result<()> {
+        if let Some(project_type) = self.get_project_type()? {
+            project_type.compile(self)?;
+            if self.is_dirty()? {
+                bail!("Repository became dirty after build attempt. Perhaps Cargo.lock was not a part of the last commit?");
+            }
         }
 
         Ok(())
     }
 
-    pub fn cargo_check(&self) -> Result<()> {
-        info!("Compiling project to ensure consistency (cargo check)...");
-        self.shell("cargo check --workspace --tests")
-            .context("Failed building project")
+    fn get_project_type(&self) -> Result<Option<ProjectType>> {
+        if self.path().join("Cargo.toml").exists() {
+            Ok(Some(ProjectType::Rust))
+        } else {
+            Ok(None)
+        }
     }
 
     pub fn pargit_publish(&self, object_type: &str, name: Option<String>) -> Result<()> {
@@ -336,5 +350,21 @@ impl Repository {
             bail!("Git failed: {:?}", String::from_utf8_lossy(&output.stderr));
         }
         Ok(output)
+    }
+}
+
+enum ProjectType {
+    Rust,
+}
+
+impl ProjectType {
+    fn compile(&self, repo: &Repository) -> Result<()> {
+        match self {
+            ProjectType::Rust => {
+                info!("Compiling project (cargo check)...");
+                repo.shell("cargo check --workspace --tests")
+                    .context("Failed building project")
+            }
+        }
     }
 }

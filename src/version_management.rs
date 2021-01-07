@@ -92,7 +92,7 @@ fn bump_cargo_tomls(
             .open(path)?
             .write_all(toml.to_string().as_bytes())?
     }
-    repo.cargo_check()
+    repo.compile_project()
 }
 
 fn next_version(version: &Version, bump_kind: BumpKind) -> Version {
