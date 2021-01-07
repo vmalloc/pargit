@@ -330,6 +330,7 @@ impl Repository {
             .current_dir(self.path())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
+            .stdin(Stdio::null())
             .spawn()?;
         let output = child.wait_with_output()?;
         if !output.status.success() {
