@@ -163,15 +163,16 @@ impl Repository {
     fn check_pre_release(&self) -> Result<()> {
         info!("Running pre-release checks...");
 
-        self.compile_project()
+        self.compile_project()?;
+        if self.is_dirty()? {
+            bail!("Repository became dirty after build attempt. Perhaps Cargo.lock was not a part of the last commit?");
+        }
+        Ok(())
     }
 
     pub fn compile_project(&self) -> Result<()> {
         if let Some(project_type) = self.get_project_type()? {
             project_type.compile(self)?;
-            if self.is_dirty()? {
-                bail!("Repository became dirty after build attempt. Perhaps Cargo.lock was not a part of the last commit?");
-            }
         }
 
         Ok(())
