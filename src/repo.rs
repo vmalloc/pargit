@@ -5,7 +5,6 @@ use std::{
     path::Path,
     process::{Output, Stdio},
 };
-
 pub struct Repository {
     repo: git2::Repository,
 }
@@ -19,7 +18,18 @@ impl Repository {
         if returned.is_dirty()? {
             bail!("Repository is dirty!");
         }
+
+        returned.check_configuration()?;
+
         Ok(returned)
+    }
+
+    fn check_configuration(&self) -> Result<()> {
+        self.find_develop_branch()
+            .context("Cannot find develop branch")?;
+        self.find_master_branch()
+            .context("Cannot find master branch")
+            .map(drop)
     }
 
     pub fn path(&self) -> &Path {
@@ -250,6 +260,10 @@ impl Repository {
 
     fn find_develop_branch(&self) -> Result<Branch> {
         self.find_branch("develop")
+    }
+
+    fn find_master_branch(&self) -> Result<Branch> {
+        self.find_branch("master")
     }
 
     fn git_fetch(&self, remote_name: &str) -> Result<()> {
