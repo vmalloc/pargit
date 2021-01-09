@@ -41,6 +41,7 @@ jobs:
 
       - name: Publish (dry run)
         run: cargo publish --dry-run
+        if: github.ref != 'refs/heads/master'
 
       - name: Publish on crates.io
         run: |
