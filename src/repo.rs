@@ -32,6 +32,10 @@ impl Repository {
             .map(drop)
     }
 
+    pub fn is_path_ignored(&self, path: &Path) -> Result<bool> {
+        Ok(self.repo.is_path_ignored(path)?)
+    }
+
     pub fn path(&self) -> &Path {
         let returned = self.repo.path();
         assert_eq!(returned.file_name().unwrap(), ".git");

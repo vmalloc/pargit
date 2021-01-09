@@ -6,11 +6,7 @@ use anyhow::{bail, format_err, Context, Result};
 use dialoguer::{theme::ColorfulTheme, Select};
 use log::debug;
 use semver::Version;
-use std::{
-    fs::read_to_string,
-    io::Write,
-    path::{Path, PathBuf},
-};
+use std::{fs::read_to_string, io::Write, path::PathBuf};
 use toml_edit::{value, Document};
 
 pub fn release_start(repo: &Repository, spec: VersionSpec) -> Result<()> {
@@ -42,7 +38,7 @@ pub fn release_version(repo: &Repository, bump_kind: BumpKind) -> Result<()> {
 }
 
 fn deduce_cargo_toml_version(repo: &Repository) -> Result<(PathBuf, Document, Version)> {
-    let cargo_tomls = find_cargo_tomls(repo.path())?;
+    let cargo_tomls = find_cargo_tomls(repo)?;
     let index = if cargo_tomls.len() > 1 {
         let selections = cargo_tomls
             .iter()
@@ -70,7 +66,7 @@ fn deduce_cargo_toml_version(repo: &Repository) -> Result<(PathBuf, Document, Ve
 }
 
 pub fn bump_version(repo: &Repository, bump_kind: BumpKind) -> Result<()> {
-    bump_cargo_tomls(repo, find_cargo_tomls(repo.path())?, bump_kind)
+    bump_cargo_tomls(repo, vec![deduce_cargo_toml_version(repo)?], bump_kind)
 }
 
 fn bump_cargo_tomls(
@@ -105,9 +101,9 @@ fn next_version(version: &Version, bump_kind: BumpKind) -> Version {
     version
 }
 
-fn find_cargo_tomls(path: &Path) -> Result<Vec<(PathBuf, Document, Version)>> {
+fn find_cargo_tomls(repo: &Repository) -> Result<Vec<(PathBuf, Document, Version)>> {
     let mut returned = Vec::new();
-    for entry in walkdir::WalkDir::new(path)
+    for entry in walkdir::WalkDir::new(repo.path())
         .contents_first(false)
         .into_iter()
         .filter_entry(|entry| {
@@ -119,6 +115,11 @@ fn find_cargo_tomls(path: &Path) -> Result<Vec<(PathBuf, Document, Version)>> {
         let path = entry.path();
 
         if path.file_name().unwrap() == "Cargo.toml" {
+            if repo.is_path_ignored(path)? {
+                debug!("{:?} is ignored in .gitignore. Skipping", path);
+                continue;
+            }
+
             let toml: toml_edit::Document = read_to_string(path)
                 .context("Failed reading file")?
                 .parse()
