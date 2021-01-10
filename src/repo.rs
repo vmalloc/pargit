@@ -268,6 +268,7 @@ impl Repository {
 
     fn find_master_branch(&self) -> Result<Branch> {
         self.find_branch("master")
+            .or_else(|_| self.find_branch("main"))
     }
 
     fn git_fetch(&self, remote_name: &str) -> Result<()> {
