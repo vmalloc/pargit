@@ -23,6 +23,13 @@ Pargit aims to be an opinionated alternative to `git-flow`, while providing bett
 * **Saner Defaults** - pargit aims to make sense, deducing parameters when possible and using sane defaults for dealing with project workflow. Unlike `git-flow`, pargit will not prompt you twice for a commit message as a part of releasing a version 🤦‍♂️
 
 # Quickstart
+
+
+## Installation
+
+```shell
+$ cargo install pargit
+```
 ## Features
 
 Pargit forks feature branches from the `develop` branch by default. To start a new feature:
