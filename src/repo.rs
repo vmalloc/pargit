@@ -224,7 +224,8 @@ impl Repository {
         self.switch_to_branch_name(dest_branch)?;
         let branch_name = self.prefix(object_type, &name);
         debug!("Merging {}", branch_name);
-        self.merge_branch_name(&branch_name, &format!("Merge {}", branch_name))
+        self.merge_branch_name(&branch_name, &format!("Merge {}", branch_name))?;
+        self.pargit_delete(object_type, Some(name))
     }
 
     pub fn pargit_cleanup(&self) -> Result<()> {
