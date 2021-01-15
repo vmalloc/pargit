@@ -7,6 +7,7 @@ use project::Project;
 use structopt::StructOpt;
 
 mod commands;
+mod config;
 mod project;
 mod project_types;
 mod release;

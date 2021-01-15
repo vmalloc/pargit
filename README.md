@@ -64,3 +64,9 @@ Or you can specify a major/minor/patch bump:
 $ pargit release version major
 ```
 
+# Configuration
+
+You can configure pargit by adding a `.pargit.toml` file in your project's root directory, in the following format (all values optional):
+
+```toml
+tag_prefix = "" # prefix for tags, e.g. "v". Default is empty prefix

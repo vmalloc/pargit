@@ -1,6 +1,6 @@
 use semver::Version;
 
-use crate::version_file::VersionFile;
+use crate::{config::Config, version_file::VersionFile};
 
 pub struct Release {
     pub name: String,
@@ -10,10 +10,10 @@ pub struct Release {
 }
 
 impl Release {
-    pub fn version(version: Version, version_file: Option<VersionFile>) -> Self {
+    pub fn version(config: &Config, version: Version, version_file: Option<VersionFile>) -> Self {
         Self {
             name: version.to_string(),
-            tag: version.to_string(),
+            tag: config.get_tag_name(&version.to_string()),
             version,
             version_file,
         }

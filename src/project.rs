@@ -1,22 +1,21 @@
-use anyhow::{bail, format_err, Context, Result};
-use dialoguer::{theme::ColorfulTheme, Select};
-use log::{debug, error, info};
-use std::path::{Path, PathBuf};
-
 use crate::{
     commands::{BumpKind, VersionSpec},
+    config::Config,
     release::Release,
     repo::Repository,
     utils::{next_version, PathExt},
     version_file::VersionFile,
 };
+use anyhow::{bail, format_err, Context, Result};
+use dialoguer::{theme::ColorfulTheme, Select};
+use log::{debug, error, info};
+use std::path::{Path, PathBuf};
 
 pub struct Project {
     path: PathBuf,
-
     pub repo: Repository,
-
     type_: Option<ProjectType>,
+    config: Config,
 }
 
 impl Project {
@@ -27,8 +26,10 @@ impl Project {
             None
         };
         let repo = Repository::on_path(path)?;
+        let config = Config::load(path)?;
         Ok(Self {
             path: path.to_owned(),
+            config,
             repo,
             type_,
         })
@@ -164,9 +165,10 @@ impl Project {
             )
             .context("Failed merge")?;
         info!("Creating tag and pushing to remote master");
+        let tag = self.config.get_tag_name(&release_name);
         let res = self
             .repo
-            .create_tag(&release_name)
+            .create_tag(&tag)
             .and_then(|_| {
                 self.path
                     .shell(format!("git push origin {}:master", temp_branch_name))
@@ -178,7 +180,7 @@ impl Project {
             error!("Failed pushing to master. Rolling back changes...");
             let _ = self
                 .repo
-                .delete_tag(&release_name)
+                .delete_tag(&tag)
                 .map_err(|e| error!("Failed deleting tag: {:?}", e));
             let _ = self.repo.switch_to_branch_name(&release_branch_name);
 
@@ -253,10 +255,11 @@ impl Project {
     fn resolve_release(&self, version: VersionSpec) -> Result<Release> {
         let version_file = self.get_version_file()?;
         Ok(match version {
-            VersionSpec::Exact(version) => Release::version(version, version_file),
+            VersionSpec::Exact(version) => Release::version(&self.config, version, version_file),
             VersionSpec::Bump(kind) => {
                 if let Some(version_file) = version_file {
                     Release::version(
+                        &self.config,
                         next_version(&version_file.version(), kind),
                         Some(version_file),
                     )
