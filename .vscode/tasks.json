@@ -3,7 +3,7 @@
 	"tasks": [
 		{
 			"type": "shell",
-			"command": "cargo build",
+			"command": "cargo lcheck",
 			"options": {
 				"env": {
 					"CARGO_ASC": "true",
