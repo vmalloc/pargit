@@ -70,3 +70,4 @@ You can configure pargit by adding a `.pargit.toml` file in your project's root 
 
 ```toml
 tag_prefix = "" # prefix for tags, e.g. "v". Default is empty prefix
+```
