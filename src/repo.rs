@@ -76,9 +76,14 @@ impl Repository {
 
     pub fn cleanup(&self) -> Result<()> {
         self.git_fetch("origin")?;
-        let develop = self.find_develop_branch()?;
-        let remote_develop = develop.upstream()?.into_reference().peel_to_commit()?.id();
-        let develop = develop.get().peel_to_commit()?.id();
+        let develop_branch = self.find_develop_branch()?;
+        let remote_develop = develop_branch
+            .upstream()?
+            .into_reference()
+            .peel_to_commit()?
+            .id();
+        let develop = develop_branch.get().peel_to_commit()?.id();
+        let current_branch_name = self.current_branch_name()?;
 
         // we only cleanup if remote_develop is ahead of develop and  contains it
         if develop != remote_develop && self.is_merged(develop, remote_develop)? {
@@ -95,6 +100,14 @@ impl Repository {
                         && !self.is_merged(branch_commit, develop)?
                     {
                         info!("Branch {} is not merged into local develop, but is merged to remote develop. Deleting...", name);
+                        if current_branch_name == name {
+                            info!(
+                                "Branch {} is the current branch, switching to {}...",
+                                current_branch_name,
+                                develop_branch.name()?.unwrap()
+                            );
+                            self.switch_to_branch(&develop_branch)?;
+                        }
                         branch.delete()?;
                     }
                 }
@@ -115,6 +128,7 @@ impl Repository {
     }
 
     fn git_fetch(&self, remote_name: &str) -> Result<()> {
+        info!("Fetching remote {:?}...", remote_name);
         self.path().shell(format!("git fetch {}", remote_name))
     }
 
