@@ -28,7 +28,7 @@ impl Project {
         let repo = Repository::on_path(path)?;
         let config = Config::load(path)?;
         Ok(Self {
-            path: path.to_owned(),
+            path: path.canonicalize()?,
             config,
             repo,
             type_,
