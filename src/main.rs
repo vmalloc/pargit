@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
-use commands::{ReleaseCommand, VersionCommand};
+use commands::{FlowCommand, ReleaseCommand, VersionCommand};
 use log::error;
 use project::Project;
 use structopt::StructOpt;
@@ -33,7 +33,7 @@ struct Opts {
 fn entry_point(opts: Opts) -> Result<()> {
     log::debug!("Starting...");
 
-    use commands::{Command::*, FeatureCommand, ReleaseCommand::*};
+    use commands::{Command::*, ReleaseCommand::*};
 
     let project = Project::new(&opts.path)?;
 
@@ -43,16 +43,20 @@ fn entry_point(opts: Opts) -> Result<()> {
         Release(ReleaseCommand::Delete { name }) => project.pargit_delete("release", name),
         Release(Finish { name }) => project.release_finish(name),
         Release(ReleaseCommand::Version(kind)) => project.release_version(kind),
-        Feature(FeatureCommand::Delete { name }) => project.pargit_delete("feature", name),
-        Feature(FeatureCommand::Start { name }) => {
-            project.pargit_start("feature", &name, "develop")
-        }
-        Feature(FeatureCommand::Publish { name }) => project.pargit_publish("feature", name),
-        Feature(FeatureCommand::Finish { name }) => {
-            project.pargit_finish("feature", name, "develop")
-        }
+
+        Feature(cmd) => process_flow_command(&project, "feature", cmd),
+        Bugfix(cmd) => process_flow_command(&project, "bugfix", cmd),
         commands::Command::Version(VersionCommand::Bump(kind)) => project.bump_version(kind),
         Cleanup => project.pargit_cleanup(),
+    }
+}
+
+fn process_flow_command(project: &Project, flow_name: &str, cmd: FlowCommand) -> Result<()> {
+    match cmd {
+        FlowCommand::Delete { name } => project.pargit_delete(flow_name, name),
+        FlowCommand::Start { name } => project.pargit_start(flow_name, &name, "develop"),
+        FlowCommand::Publish { name } => project.pargit_publish(flow_name, name),
+        FlowCommand::Finish { name } => project.pargit_finish(flow_name, name, "develop"),
     }
 }
 

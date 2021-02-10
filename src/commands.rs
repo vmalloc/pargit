@@ -7,7 +7,8 @@ use strum_macros::EnumString;
 #[derive(StructOpt)]
 pub enum Command {
     Release(ReleaseCommand),
-    Feature(FeatureCommand),
+    Feature(FlowCommand),
+    Bugfix(FlowCommand),
     Version(VersionCommand),
     Cleanup,
 }
@@ -31,7 +32,7 @@ pub enum ReleaseCommand {
 }
 
 #[derive(StructOpt)]
-pub enum FeatureCommand {
+pub enum FlowCommand {
     Start { name: String },
     Publish { name: Option<String> },
     Delete { name: Option<String> },
