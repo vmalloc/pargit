@@ -1,6 +1,6 @@
 use anyhow::{bail, format_err, Context, Result};
-use git2::{Branch, BranchType, Oid, StatusOptions};
-use log::info;
+use git2::{Branch, BranchType, ErrorCode, Oid, StatusOptions};
+use log::{info, warn};
 use std::path::Path;
 
 use crate::utils::PathExt;
@@ -26,9 +26,28 @@ impl Repository {
     fn check_configuration(&self) -> Result<()> {
         self.find_develop_branch()
             .context("Cannot find develop branch")?;
-        self.find_master_branch()
+        self.ensure_master_branch()
             .context("Cannot find master branch")
             .map(drop)
+    }
+
+    fn ensure_master_branch(&self) -> Result<()> {
+        match self.find_master_branch() {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                if let Some(e) = e.downcast_ref::<git2::Error>() {
+                    if e.code() == ErrorCode::NotFound
+                        && crate::utils::interactive::ask_yn(
+                            "Master branch does not exist. Do you want to create it?",
+                        )?
+                    {
+                        self.path().shell("git branch master origin/master")?;
+                        return Ok(());
+                    }
+                }
+                Err(e)
+            }
+        }
     }
 
     pub fn is_path_ignored(&self, path: &Path) -> Result<bool> {
@@ -123,8 +142,13 @@ impl Repository {
     }
 
     fn find_master_branch(&self) -> Result<Branch> {
-        self.find_branch("master")
-            .or_else(|_| self.find_branch("main"))
+        self.find_branch("master").or_else(|e| {
+            warn!(
+                "Could not find a branch called 'master': {:?}. Falling back to 'main'...",
+                e
+            );
+            self.find_branch("main")
+        })
     }
 
     fn git_fetch(&self, remote_name: &str) -> Result<()> {
