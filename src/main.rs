@@ -35,9 +35,10 @@ fn entry_point(opts: Opts) -> Result<()> {
 
     use commands::{Command::*, ReleaseCommand::*};
 
-    let project = Project::new(&opts.path)?;
+    let mut project = Project::new(&opts.path)?;
 
     match opts.command {
+        Configure => project.configure(),
         Release(Start { spec }) => project.release_start(spec).map(drop),
         Release(Publish { name }) => project.pargit_publish("release", name),
         Release(ReleaseCommand::Delete { name }) => project.pargit_delete("release", name),
@@ -54,9 +55,13 @@ fn entry_point(opts: Opts) -> Result<()> {
 fn process_flow_command(project: &Project, flow_name: &str, cmd: FlowCommand) -> Result<()> {
     match cmd {
         FlowCommand::Delete { name } => project.pargit_delete(flow_name, name),
-        FlowCommand::Start { name } => project.pargit_start(flow_name, &name, "develop"),
+        FlowCommand::Start { name } => {
+            project.pargit_start(flow_name, &name, &project.config().develop_branch_name)
+        }
         FlowCommand::Publish { name } => project.pargit_publish(flow_name, name),
-        FlowCommand::Finish { name } => project.pargit_finish(flow_name, name, "develop"),
+        FlowCommand::Finish { name } => {
+            project.pargit_finish(flow_name, name, &project.config().develop_branch_name)
+        }
     }
 }
 

@@ -7,7 +7,8 @@ use crate::{
     version_file::VersionFile,
 };
 use anyhow::{bail, format_err, Context, Result};
-use dialoguer::{theme::ColorfulTheme, Select};
+use dialoguer::{theme::ColorfulTheme, Confirm, Select};
+use git2::ErrorCode;
 use log::{debug, error, info};
 use std::path::{Path, PathBuf};
 
@@ -27,12 +28,44 @@ impl Project {
         };
         let repo = Repository::on_path(path)?;
         let config = Config::load(path)?;
-        Ok(Self {
+        let returned = Self {
             path: path.canonicalize()?,
             config,
             repo,
             type_,
-        })
+        };
+        returned.check_configuration()?;
+        Ok(returned)
+    }
+
+    pub fn check_configuration(&self) -> Result<()> {
+        self.repo.find_branch(&self.config.develop_branch_name)?;
+        self.ensure_master_branch().map(drop)
+    }
+
+    fn ensure_master_branch(&self) -> Result<()> {
+        match self.repo.find_branch(&self.config.master_branch_name) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                if let Some(e) = e.downcast_ref::<git2::Error>() {
+                    if e.code() == ErrorCode::NotFound
+                        && Confirm::with_theme(&ColorfulTheme::default())
+                            .with_prompt("Master branch not found. Create it?")
+                            .interact()?
+                    {
+                        self.repo.path().shell("git branch master origin/master")?;
+                        return Ok(());
+                    }
+                }
+                Err(e)
+            }
+        }
+    }
+
+    pub fn configure(&mut self) -> Result<()> {
+        self.config.reconfigure()?;
+        self.config.save(&self.path)?;
+        Ok(())
     }
 
     // High-level API
@@ -47,7 +80,7 @@ impl Project {
     }
 
     pub fn pargit_cleanup(&self) -> Result<()> {
-        self.repo.cleanup()
+        self.repo.cleanup(&self.config.develop_branch_name)
     }
 
     pub fn pargit_delete(&self, object_type: &str, name: Option<String>) -> Result<()> {
@@ -67,8 +100,7 @@ impl Project {
 
         if branch.name()?.unwrap() == self.repo.current_branch_name()? {
             self.repo
-                .switch_to_branch_name("develop")
-                .context("Cannot switch to develop branch")?;
+                .switch_to_branch_name(&self.config.develop_branch_name)?;
         }
         info!("Deleting branch {:?}", branch_name);
         branch.delete()?;
@@ -136,7 +168,7 @@ impl Project {
         if self.repo.has_tag(&release.tag)? {
             bail!("Tag {} already exists", release.tag);
         }
-        self.pargit_start("release", &release.name, "develop")?;
+        self.pargit_start("release", &release.name, &self.config.develop_branch_name)?;
         if let Some(version_file) = release.version_file.as_ref() {
             version_file.bump(VersionSpec::Exact(release.version.clone()))?;
             info!("Compiling project to lock new version");
@@ -154,7 +186,8 @@ impl Project {
 
         let temp_branch_name = format!("in-progress-release-{}", release_name);
 
-        self.repo.create_branch(&temp_branch_name, Some("master"))?;
+        self.repo
+            .create_branch(&temp_branch_name, Some(&self.config.master_branch_name))?;
         info!("Switching to temporary branch");
         self.repo.switch_to_branch_name(&temp_branch_name)?;
         info!("Merging release branch");
@@ -193,15 +226,19 @@ impl Project {
         }
 
         info!("Push successful. Merging to local master");
-        self.repo.switch_to_branch_name("master")?;
+        self.repo
+            .switch_to_branch_name(&self.config.master_branch_name)?;
         self.repo
             .merge_branch_name(&temp_branch_name, "Merge temporary release branch")?;
         info!("Pushing tags");
         self.path.shell("git push --tags")?;
-        self.repo.switch_to_branch_name("develop")?;
-        info!("Merging to develop branch");
         self.repo
-            .merge_branch_name("master", "Merge master branch")?;
+            .switch_to_branch_name(&self.config.develop_branch_name)?;
+        info!("Merging to develop branch");
+        self.repo.merge_branch_name(
+            &self.config.master_branch_name,
+            &format!("Merge {} branch", self.config.master_branch_name),
+        )?;
 
         self.repo
             .find_branch(temp_branch_name)?
@@ -315,6 +352,11 @@ impl Project {
             bail!("Repository became dirty after build attempt. Perhaps Cargo.lock was not a part of the last commit?");
         }
         Ok(())
+    }
+
+    /// Get a reference to the project's config.
+    pub fn config(&self) -> &Config {
+        &self.config
     }
 }
 

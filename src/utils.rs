@@ -41,14 +41,3 @@ pub fn next_version(version: &Version, bump_kind: BumpKind) -> Version {
     }
     version
 }
-
-pub mod interactive {
-    use anyhow::Result;
-    use dialoguer::{theme::ColorfulTheme, Confirm};
-
-    pub fn ask_yn(msg: &str) -> Result<bool> {
-        Ok(Confirm::with_theme(&ColorfulTheme::default())
-            .with_prompt(msg)
-            .interact()?)
-    }
-}
