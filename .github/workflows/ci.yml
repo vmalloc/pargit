@@ -39,6 +39,12 @@ jobs:
           OPENSSL_LIB_DIR: /usr/lib/x86_64-linux-gnu/
           OPENSSL_INCLUDE_DIR: /usr/include/openssl
 
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest tests
+
       - name: Publish (dry run)
         run: cargo publish --dry-run
         if: github.ref != 'refs/heads/master'
