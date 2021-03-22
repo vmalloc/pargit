@@ -1,5 +1,6 @@
 use crate::{commands::VersionSpec, utils::next_version};
 use anyhow::Result;
+use log::debug;
 use semver::Version;
 use std::path::{Path, PathBuf};
 
@@ -11,6 +12,8 @@ impl VersionFile {
     pub fn bump(&self, spec: VersionSpec) -> Result<()> {
         match self {
             VersionFile::CargoToml(path, version) => {
+                debug!("Bumping Cargo.toml file {:?}", path);
+
                 let version = match spec {
                     VersionSpec::Exact(version) => version,
                     VersionSpec::Bump(kind) => next_version(version, kind),

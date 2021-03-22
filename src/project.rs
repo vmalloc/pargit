@@ -3,7 +3,7 @@ use crate::{
     config::Config,
     release::Release,
     repo::Repository,
-    utils::{get_color_theme, next_version, PathExt},
+    utils::{get_color_theme, next_version, ExitStack, PathExt, ResultExt},
     version_file::VersionFile,
 };
 use anyhow::{bail, format_err, Context, Result};
@@ -71,6 +71,7 @@ impl Project {
     // High-level API
 
     pub fn bump_version(&self, bump_kind: BumpKind) -> Result<()> {
+        debug!("Bumping version: {:?}", bump_kind);
         let bumped_file = self
             .get_version_file()?
             .ok_or_else(|| format_err!("Unable to find version file"))?;
@@ -157,23 +158,36 @@ impl Project {
     }
 
     pub fn release_version(&self, bump_kind: BumpKind) -> Result<()> {
+        let mut history = ExitStack::default();
         let release = self.release_start(VersionSpec::Bump(bump_kind))?;
+        let release_name = release.name.clone();
+        history.remember("Delete release branch", move || {
+            self.pargit_delete("release", Some(release_name))
+                .ignore_errors()
+        });
         self.repo.commit_all("Bump version")?;
-        self.release_finish(Some(release.name))
+        self.release_finish(Some(release.name))?;
+        history.forget();
+        Ok(())
     }
 
     pub fn release_start(&self, spec: VersionSpec) -> Result<Release> {
         let release = self.resolve_release(spec)?;
+        let mut undo = ExitStack::default();
 
         if self.repo.has_tag(&release.tag)? {
             bail!("Tag {} already exists", release.tag);
         }
         self.pargit_start("release", &release.name, &self.config.develop_branch_name)?;
+        undo.remember("Deleting release branch", || {
+            self.pargit_delete("release", None).ignore_errors()
+        });
         if let Some(version_file) = release.version_file.as_ref() {
             version_file.bump(VersionSpec::Exact(release.version.clone()))?;
             info!("Compiling project to lock new version");
             self.compile()?;
         }
+        undo.forget();
         Ok(release)
     }
 
@@ -249,9 +263,9 @@ impl Project {
         self.path.shell("git push origin develop:develop")
     }
 
-    fn resolve_name(&self, object_type: &str, name: Option<String>) -> Result<String> {
+    fn resolve_name(&self, object_type: &str, name: Option<impl Into<String>>) -> Result<String> {
         Ok(match name {
-            Some(name) => name,
+            Some(name) => name.into(),
             None => self
                 .current_name(object_type)
                 .context("Cannot get release name from branch name")?,

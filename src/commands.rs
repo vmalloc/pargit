@@ -45,7 +45,7 @@ pub enum VersionCommand {
     Bump(BumpKind),
 }
 
-#[derive(StructOpt, Clone, Copy, EnumString)]
+#[derive(StructOpt, Clone, Copy, EnumString, Debug)]
 #[strum(serialize_all = "snake_case")]
 pub enum BumpKind {
     Major,

@@ -9,19 +9,21 @@ import pathlib
 def remote_repo(tmpdir):
     path = tmpdir / "remote"
     path.mkdir()
-    subprocess.check_call(f"git init {path}", shell=True)
+    subprocess.check_call(f"git init --bare {path}", shell=True)
     returned = Repo(path)
-    returned.configure()
-    returned.shell("git commit --allow-empty -m init")
-    returned.shell("git checkout -b develop")
     return returned
 
 
 @pytest.fixture
 def local_repo(tmpdir, remote_repo):
     path = tmpdir / "local"
-    returned = remote_repo.clone_to(path)
-    returned.shell("git branch master origin/master")
+    subprocess.check_call(f"git init {path}", shell=True)
+    returned = Repo(path)
+    returned.shell(f"git remote add origin {remote_repo.path}")
+    returned.configure()
+    returned.shell("git commit -a -m init --allow-empty")
+    returned.shell("git checkout -b develop master")
+    returned.shell("git push origin develop:develop master:master")
     return returned
 
 
@@ -70,11 +72,12 @@ class ExecProxy:
     def get_command(self, *args):
         command = self.command.split("_")
         command.extend(args)
+        command.insert(0, "-vvvv")
         return command
 
     def spawn(self, *args):
         command = self.get_command(*args)
-        command.insert(0, self.pargit.binary)
+        command = [self.pargit.binary] + command
         return pexpect.spawn(
             str(command[0]),
             args=command[1:],
@@ -105,3 +108,31 @@ class Repo:
         returned = Repo(path)
         returned.configure()
         return returned
+
+    def branches(self):
+        return {
+            line.replace("*", "").strip()
+            for line in subprocess.check_output(
+                "git branch", cwd=self.path, encoding="utf-8", shell=True
+            ).splitlines()
+        }
+
+    def into_rust_project(self):
+        (self.path / "src").mkdir()
+        with (self.path / "src/main.rs").open("w") as f:
+            f.write(
+                """
+fn main() {}
+            """
+            )
+        with (self.path / "Cargo.toml").open("w") as f:
+            f.write(
+                """
+[package]
+edition = "2018"
+name = "testme"
+version = "0.1.0"
+"""
+            )
+        self.shell("git add .")
+        self.shell("git commit -a -m 'Convert to Rust'")
