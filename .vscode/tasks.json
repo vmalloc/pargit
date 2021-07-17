@@ -3,13 +3,7 @@
 	"tasks": [
 		{
 			"type": "shell",
-			"command": "cargo lcheck",
-			"options": {
-				"env": {
-					"CARGO_ASC": "true",
-					"CARGO_MSG_LIMIT": "1"
-				},
-			},
+			"command": "cargo check",
 			"problemMatcher": [
 				"$rustc"
 			],

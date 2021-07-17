@@ -59,6 +59,15 @@ impl Repository {
             .shell(format!("git tag -a -m {0} {0}", tag_name))
     }
 
+    pub fn tags(&self) -> Result<Vec<String>> {
+        Ok(self
+            .repo
+            .tag_names(None)?
+            .into_iter()
+            .filter_map(|s| s.map(String::from))
+            .collect())
+    }
+
     fn is_merged(&self, commit: Oid, branch: Oid) -> Result<bool> {
         Ok(self.repo.merge_base(commit, branch)? == commit)
     }

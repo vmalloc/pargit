@@ -70,7 +70,8 @@ impl Config {
         Ok(())
     }
 
-    pub fn get_tag_name(&self, version: &str) -> String {
-        format!("{}{}", self.tag_prefix, version)
+    pub fn get_tag_name(&self, version: &str, prefix: Option<String>) -> String {
+        let prefix = prefix.as_deref().unwrap_or(&self.tag_prefix);
+        format!("{}{}", prefix, version)
     }
 }

@@ -41,3 +41,13 @@ def test_push_fails(pargit, remote_repo):
     with pytest.raises(subprocess.CalledProcessError):
         pargit.release_version_minor()
     assert pargit.repo.branches() == {"develop", "master"}
+
+
+@pytest.mark.parametrize("prefix", ["", "v"])
+def test_bump_without_cargo_toml(pargit, prefix):
+    pargit.repo.into_empty_project()
+    pargit.repo.tag(f"{prefix}1.0.0")
+    tags = pargit.repo.tags()
+    assert tags == {f"{prefix}1.0.0"}
+    pargit.release_version_minor()
+    assert pargit.repo.tags() == {f"{prefix}1.0.0", f"{prefix}1.1.0"}

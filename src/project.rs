@@ -10,6 +10,7 @@ use anyhow::{bail, format_err, Context, Result};
 use dialoguer::{theme::ColorfulTheme, Confirm, Select};
 use git2::ErrorCode;
 use log::{debug, error, info};
+use semver::Version;
 use std::path::{Path, PathBuf};
 
 pub struct Project {
@@ -161,12 +162,15 @@ impl Project {
         let mut history = ExitStack::default();
         let release = self.release_start(VersionSpec::Bump(bump_kind))?;
         let release_name = release.name.clone();
+        let release_name_clone = release.name.clone();
         history.remember("Delete release branch", move || {
-            self.pargit_delete("release", Some(release_name))
+            self.pargit_delete("release", Some(release_name_clone))
                 .ignore_errors()
         });
-        self.repo.commit_all("Bump version")?;
-        self.release_finish(Some(release.name))?;
+        if self.repo.is_dirty()? {
+            self.repo.commit_all("Bump version")?;
+        }
+        self.release_finish(Some(release_name), Some(&release.tag))?;
         history.forget();
         Ok(())
     }
@@ -191,7 +195,7 @@ impl Project {
         Ok(release)
     }
 
-    pub fn release_finish(&self, release_name: Option<String>) -> Result<()> {
+    pub fn release_finish(&self, release_name: Option<String>, tag: Option<&str>) -> Result<()> {
         let release_name = self.resolve_name("release", release_name)?;
         let release_branch_name = self.prefix_release(&release_name);
         info!("Finishing release {}", release_name);
@@ -212,7 +216,9 @@ impl Project {
             )
             .context("Failed merge")?;
         info!("Creating tag and pushing to remote master");
-        let tag = self.config.get_tag_name(&release_name);
+        let tag = tag
+            .map(String::from)
+            .unwrap_or_else(|| self.config.get_tag_name(&release_name, None));
         let res = self
             .repo
             .create_tag(&tag)
@@ -306,19 +312,52 @@ impl Project {
     fn resolve_release(&self, version: VersionSpec) -> Result<Release> {
         let version_file = self.get_version_file()?;
         Ok(match version {
-            VersionSpec::Exact(version) => Release::version(&self.config, version, version_file),
+            VersionSpec::Exact(version) => {
+                Release::version(&self.config, version, version_file, None)
+            }
             VersionSpec::Bump(kind) => {
                 if let Some(version_file) = version_file {
                     Release::version(
                         &self.config,
                         next_version(&version_file.version(), kind),
                         Some(version_file),
+                        None,
+                    )
+                } else if let Some((existing_version, prefix)) =
+                    self.try_get_latest_tagged_version()?
+                {
+                    Release::version(
+                        &self.config,
+                        next_version(&existing_version, kind),
+                        None,
+                        Some(prefix),
                     )
                 } else {
                     bail!("Cannot find version file to bump. Cannot deduce version")
                 }
             }
         })
+    }
+
+    fn try_get_latest_tagged_version(&self) -> Result<Option<(Version, String)>> {
+        let tags = self.repo.tags()?;
+
+        let mut versions = Vec::new();
+
+        for tag in tags {
+            for prefix in &["v", ""] {
+                if let Some(v) = tag.strip_prefix(prefix) {
+                    if let Ok(v) = Version::parse(v) {
+                        versions.push((v, (*prefix).to_owned()));
+                        break;
+                    }
+                }
+            }
+        }
+
+        versions.sort_by_key(|(version, _)| version.clone());
+
+        Ok(versions.into_iter().last())
     }
 
     fn get_version_file(&self) -> Result<Option<VersionFile>> {

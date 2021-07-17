@@ -96,12 +96,21 @@ class Repo:
             (self.path / ".git/HEAD").open().read().split("ref: refs/heads/")[1].strip()
         )
 
+    def tags(self):
+        return set(self.shell_output("git tag").splitlines())
+
+    def tag(self, tag):
+        self.shell(f"git tag {tag}")
+
     def configure(self):
         self.shell("git config user.email someuser@something.com")
         self.shell("git config user.name someuser")
 
     def shell(self, cmd):
         subprocess.check_call(cmd, shell=True, cwd=self.path)
+
+    def shell_output(self, cmd):
+        return subprocess.check_output(cmd, shell=True, cwd=self.path, encoding="utf-8")
 
     def clone_to(self, path):
         subprocess.check_call(f"git clone {self.path} {path}", shell=True)
@@ -136,3 +145,6 @@ version = "0.1.0"
             )
         self.shell("git add .")
         self.shell("git commit -a -m 'Convert to Rust'")
+
+    def into_empty_project(self):
+        self.shell("git commit -a --allow-empty -m init")

@@ -42,7 +42,7 @@ fn entry_point(opts: Opts) -> Result<()> {
         Release(Start { spec }) => project.release_start(spec).map(drop),
         Release(Publish { name }) => project.pargit_publish("release", name),
         Release(ReleaseCommand::Delete { name }) => project.pargit_delete("release", name),
-        Release(Finish { name }) => project.release_finish(name),
+        Release(Finish { name }) => project.release_finish(name, None),
         Release(ReleaseCommand::Version(kind)) => project.release_version(kind),
 
         Feature(cmd) => process_flow_command(&project, "feature", cmd),
