@@ -28,7 +28,7 @@ Pargit aims to be an opinionated alternative to `git-flow`, while providing bett
 ## Installation
 
 ```shell
-$ cargo install pargit
+$ cargo install --locked pargit
 ```
 ## Features
 
