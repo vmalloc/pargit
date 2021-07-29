@@ -47,27 +47,33 @@ class Pargit:
     def __init__(self, binary, repo):
         self.binary = binary
         self.repo = repo
+        self.env = {"PARGIT_DISABLE_COLORS": "1"}
 
-    def pargit(self, *args):
+    def pargit(self, *args, **kwargs):
         print(args)
         subprocess.check_call(
-            f'{self.binary} {" ".join(args)}', shell=True, cwd=self.repo.path
+            f'{self.binary} {" ".join(args)}', shell=True, cwd=self.repo.path, **kwargs
         )
+
+    def non_interactive(self):
+        self.env["PARGIT_NON_INTERACTIVE"] = "1"
+        return self
 
     def __getattr__(self, attr):
         if attr.startswith("_"):
             raise AttributeError(attr)
-        return ExecProxy(self, attr)
+        return ExecProxy(self, attr, self.env.copy())
 
 
 class ExecProxy:
-    def __init__(self, pargit, command):
+    def __init__(self, pargit, command, env):
         self.pargit = pargit
         self.command = command
+        self.env = env
 
     def __call__(self, *args):
         command = self.get_command(*args)
-        return self.pargit.pargit(*command)
+        return self.pargit.pargit(*command, env=self.env)
 
     def get_command(self, *args):
         command = self.command.split("_")
@@ -83,7 +89,7 @@ class ExecProxy:
             args=command[1:],
             logfile=open("/tmp/pexpect_log.log", "wb"),
             cwd=self.pargit.repo.path,
-            env={"PARGIT_DISABLE_COLORS": "1"},
+            env=self.env,
         )
 
 

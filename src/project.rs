@@ -3,7 +3,7 @@ use crate::{
     config::Config,
     release::Release,
     repo::Repository,
-    utils::{get_color_theme, next_version, ExitStack, PathExt, ResultExt},
+    utils::{can_ask_questions, get_color_theme, next_version, ExitStack, PathExt, ResultExt},
     version_file::VersionFile,
 };
 use anyhow::{bail, format_err, Context, Result};
@@ -50,6 +50,7 @@ impl Project {
             Err(e) => {
                 if let Some(e) = e.downcast_ref::<git2::Error>() {
                     if e.code() == ErrorCode::NotFound
+                        && can_ask_questions()
                         && Confirm::with_theme(get_color_theme().as_ref())
                             .with_prompt("Master branch not found. Create it?")
                             .interact()?

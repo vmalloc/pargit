@@ -66,6 +66,10 @@ pub fn get_color_theme() -> Box<dyn Theme> {
     }
 }
 
+pub fn can_ask_questions() -> bool {
+    std::env::var("PARGIT_NON_INTERACTIVE").as_deref() != Ok("1")
+}
+
 struct ExitStackItem<'a> {
     msg: &'static str,
     callback: Box<dyn FnOnce() + 'a>,

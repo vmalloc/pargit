@@ -20,7 +20,7 @@ def test_no_master_branch_ask_create(pargit):
 def test_release_version_no_master_branch_cleans_up_properly(pargit):
     pargit.repo.shell("git branch -d master")
     with pytest.raises(subprocess.CalledProcessError):
-        pargit.release_version_minor()
+        pargit.non_interactive().release_version_minor()
     assert pargit.repo.branches() == {"develop"}
 
 
