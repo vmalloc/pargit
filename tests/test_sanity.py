@@ -8,9 +8,14 @@ def test_sanity(pargit):
     assert pargit.repo.current_branch() == "feature/blap"
 
 
-def test_no_master_branch_ask_create(pargit):
+@pytest.mark.parametrize(
+    "cmd", ["feature start blap", "release version minor", "release start 0.1.0"]
+)
+def test_no_master_branch_ask_create(pargit, cmd):
+    pargit.repo.into_rust_project()
     pargit.repo.shell("git branch -d master")
-    p = pargit.feature_start.spawn("blap")
+    cmd = cmd.split()
+    p = getattr(pargit, cmd[0]).spawn(*cmd[1:])
     p.expect("Create it?", timeout=3)
     p.write("y")
     p.read()

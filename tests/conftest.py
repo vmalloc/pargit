@@ -1,4 +1,5 @@
 import pytest
+import os
 import sys
 import pexpect
 import subprocess
@@ -47,7 +48,8 @@ class Pargit:
     def __init__(self, binary, repo):
         self.binary = binary
         self.repo = repo
-        self.env = {"PARGIT_DISABLE_COLORS": "1"}
+        self.env = os.environ.copy()
+        self.env["PARGIT_DISABLE_COLORS"] = "1"
 
     def pargit(self, *args, **kwargs):
         print(args)
