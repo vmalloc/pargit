@@ -405,6 +405,11 @@ impl Project {
         if self.repo.is_dirty()? {
             bail!("Repository became dirty after build attempt. Perhaps Cargo.lock was not a part of the last commit?");
         }
+
+        if !self.repo.is_branch_up_to_date("develop")? {
+            bail!("Develop branch is behind remote develop branch. Update your local develop branch before creating a release.");
+        }
+
         Ok(())
     }
 

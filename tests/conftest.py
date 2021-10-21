@@ -24,7 +24,7 @@ def local_repo(tmpdir, remote_repo):
     returned.configure()
     returned.shell("git commit -a -m init --allow-empty")
     returned.shell("git checkout -b develop master")
-    returned.shell("git push origin develop:develop master:master")
+    returned.shell("git push origin -u develop:develop master:master")
     return returned
 
 

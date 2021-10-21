@@ -72,6 +72,13 @@ impl Repository {
         Ok(self.repo.merge_base(commit, branch)? == commit)
     }
 
+    pub fn is_branch_up_to_date(&self, branch_name: &str) -> Result<bool> {
+        self.git_fetch("origin")?;
+        let branch = self.find_branch(branch_name)?;
+        let remote = branch.upstream()?.into_reference().peel_to_commit()?.id();
+        self.is_merged(remote, branch.get().peel_to_commit()?.id())
+    }
+
     pub fn cleanup(&self, develop_branch_name: &str) -> Result<()> {
         self.git_fetch("origin")?;
         let develop_branch = self.find_branch(develop_branch_name)?;
