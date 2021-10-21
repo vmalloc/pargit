@@ -2,11 +2,14 @@ import pytest
 import subprocess
 
 
-def test_develop_behind(pargit, capfd):
+@pytest.mark.parametrize("branch", ["master", "develop"])
+def test_develop_behind(pargit, capfd, branch):
     pargit.repo.into_rust_project()
+    pargit.repo.shell(f"git checkout {branch}")
     pargit.repo.shell("git commit -m test --allow-empty")
-    pargit.repo.shell("git push -u origin develop")
+    pargit.repo.shell(f"git push -u origin {branch}")
     pargit.repo.shell("git reset --hard HEAD^")
+    pargit.repo.shell("git checkout develop")
     with pytest.raises(subprocess.CalledProcessError):
         pargit.release_version_minor()
-    assert "update your local develop branch before" in capfd.readouterr().err.lower()
+    assert f"update your local {branch} branch before" in capfd.readouterr().err.lower()
