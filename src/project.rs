@@ -159,9 +159,15 @@ impl Project {
         self.repo.switch_to_branch(&b)
     }
 
-    pub fn release_version(&self, bump_kind: BumpKind) -> Result<()> {
+    pub fn release_version(
+        &self,
+        bump_kind: BumpKind,
+        release_type: &str,
+        start_point: &str,
+    ) -> Result<()> {
         let mut history = ExitStack::default();
-        let release = self.release_start(VersionSpec::Bump(bump_kind))?;
+        let release =
+            self.release_start(VersionSpec::Bump(bump_kind), release_type, start_point)?;
         let release_name = release.name.clone();
         let release_name_clone = release.name.clone();
         history.remember("Delete release branch", move || {
@@ -171,21 +177,26 @@ impl Project {
         if self.repo.is_dirty()? {
             self.repo.commit_all("Bump version")?;
         }
-        self.release_finish(Some(release_name), Some(&release.tag))?;
+        self.release_finish(Some(release_name), Some(&release.tag), release_type)?;
         history.forget();
         Ok(())
     }
 
-    pub fn release_start(&self, spec: VersionSpec) -> Result<Release> {
+    pub fn release_start(
+        &self,
+        spec: VersionSpec,
+        kind: &str,
+        start_point: &str,
+    ) -> Result<Release> {
         let release = self.resolve_release(spec)?;
         let mut undo = ExitStack::default();
 
         if self.repo.has_tag(&release.tag)? {
             bail!("Tag {} already exists", release.tag);
         }
-        self.pargit_start("release", &release.name, &self.config.develop_branch_name)?;
+        self.pargit_start(kind, &release.name, start_point)?;
         undo.remember("Deleting release branch", || {
-            self.pargit_delete("release", None).ignore_errors()
+            self.pargit_delete(kind, None).ignore_errors()
         });
         if let Some(version_file) = release.version_file.as_ref() {
             version_file.bump(VersionSpec::Exact(release.version.clone()))?;
@@ -196,24 +207,29 @@ impl Project {
         Ok(release)
     }
 
-    pub fn release_finish(&self, release_name: Option<String>, tag: Option<&str>) -> Result<()> {
-        let release_name = self.resolve_name("release", release_name)?;
-        let release_branch_name = self.prefix_release(&release_name);
-        info!("Finishing release {}", release_name);
+    pub fn release_finish(
+        &self,
+        release_name: Option<String>,
+        tag: Option<&str>,
+        release_type: &str,
+    ) -> Result<()> {
+        let release_name = self.resolve_name(release_type, release_name)?;
+        let release_branch_name = self.prefix(release_type, &release_name);
+        info!("Finishing {} {}", release_type, release_name);
         self.repo.switch_to_branch_name(&release_branch_name)?;
         self.check_pre_release()?;
 
-        let temp_branch_name = format!("in-progress-release-{}", release_name);
+        let temp_branch_name = format!("in-progress-{}-{}", release_type, release_name);
 
         self.repo
             .create_branch(&temp_branch_name, Some(&self.config.master_branch_name))?;
         info!("Switching to temporary branch");
         self.repo.switch_to_branch_name(&temp_branch_name)?;
-        info!("Merging release branch");
+        info!("Merging {} branch", release_type);
         self.repo
             .merge_branch_name(
                 &release_branch_name,
-                &format!("Merge release branch {}", release_name),
+                &format!("Merge {} branch {}", release_type, release_name),
             )
             .context("Failed merge")?;
         info!("Creating tag and pushing to remote master");
@@ -243,7 +259,7 @@ impl Project {
                 .delete_branch_name(&temp_branch_name)
                 .map_err(|e| error!("Failed deleting temporary branch: {:?}", e));
 
-            bail!("Failed pushing new release - {:?}", e);
+            bail!("Failed pushing new {} - {:?}", release_type, e);
         }
 
         info!("Push successful. Merging to local master");
@@ -265,7 +281,7 @@ impl Project {
             .find_branch(temp_branch_name)?
             .delete()
             .context("Failed deleting temporary branch")?;
-        self.pargit_delete("release", Some(release_name))?;
+        self.pargit_delete(release_type, Some(release_name))?;
         info!("Pushing develop branch");
         self.path.shell("git push origin develop:develop")
     }
@@ -277,10 +293,6 @@ impl Project {
                 .current_name(object_type)
                 .context("Cannot get release name from branch name")?,
         })
-    }
-
-    fn prefix_release(&self, s: &str) -> String {
-        self.prefix("release", s)
     }
 
     fn prefix(&self, object_type: &str, s: &str) -> String {

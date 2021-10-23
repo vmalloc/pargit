@@ -7,6 +7,7 @@ use strum_macros::EnumString;
 #[derive(StructOpt)]
 pub enum Command {
     Configure,
+    Hotfix(ReleaseCommand),
     Release(ReleaseCommand),
     Feature(FlowCommand),
     Bugfix(FlowCommand),
