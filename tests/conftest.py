@@ -1,4 +1,5 @@
 import pytest
+from uuid import uuid4
 import os
 import sys
 import pexpect
@@ -104,11 +105,26 @@ class Repo:
             (self.path / ".git/HEAD").open().read().split("ref: refs/heads/")[1].strip()
         )
 
+    def switch_to_branch(self, branch_name):
+        self.shell(f"git checkout {branch_name}")
+
+    def __contains__(self, change):
+        assert isinstance(change, Change)
+        return (self.path / change.filename).exists()
+
     def tags(self):
         return set(self.shell_output("git tag").splitlines())
 
     def tag(self, tag):
         self.shell(f"git tag {tag}")
+
+    def commit_change(self):
+        filename = str(uuid4())
+        with (self.path / filename).open("w") as f:
+            f.write(filename)
+        self.shell("git add .")
+        self.shell("git commit -a -m {filename}")
+        return Change(filename)
 
     def configure(self):
         self.shell("git config user.email someuser@something.com")
@@ -156,3 +172,8 @@ version = "0.1.0"
 
     def into_empty_project(self):
         self.shell("git commit -a --allow-empty -m init")
+
+
+class Change:
+    def __init__(self, filename):
+        self.filename = filename

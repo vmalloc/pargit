@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use commands::{FlowCommand, ReleaseCommand, VersionCommand};
 use log::error;
 use project::Project;
@@ -33,22 +33,42 @@ struct Opts {
 fn entry_point(opts: Opts) -> Result<()> {
     log::debug!("Starting...");
 
-    use commands::{Command::*, ReleaseCommand::*};
+    use commands::Command::*;
 
     let mut project = Project::new(&opts.path)?;
 
     match opts.command {
         Configure => project.configure(),
-        Release(Start { spec }) => project.release_start(spec).map(drop),
-        Release(Publish { name }) => project.pargit_publish("release", name),
-        Release(ReleaseCommand::Delete { name }) => project.pargit_delete("release", name),
-        Release(Finish { name }) => project.release_finish(name, None),
-        Release(ReleaseCommand::Version(kind)) => project.release_version(kind),
-
+        Release(cmd) => process_release_command(&project, cmd, "release"),
+        Hotfix(cmd) => process_release_command(&project, cmd, "hotfix"),
         Feature(cmd) => process_flow_command(&project, "feature", cmd),
         Bugfix(cmd) => process_flow_command(&project, "bugfix", cmd),
         commands::Command::Version(VersionCommand::Bump(kind)) => project.bump_version(kind),
         Cleanup => project.pargit_cleanup(),
+    }
+}
+
+fn process_release_command(
+    project: &Project,
+    cmd: ReleaseCommand,
+    release_type: &str,
+) -> Result<()> {
+    use commands::ReleaseCommand::*;
+    let start_point = match release_type {
+        "release" => &project.config().develop_branch_name,
+        "hotfix" => &project.config().master_branch_name,
+        _ => bail!("Invalid release type: {:?}", release_type),
+    };
+    match cmd {
+        Start { spec } => project
+            .release_start(spec, release_type, start_point)
+            .map(drop),
+        Publish { name } => project.pargit_publish(release_type, name),
+        ReleaseCommand::Delete { name } => project.pargit_delete(release_type, name),
+        Finish { name } => project.release_finish(name, None, release_type),
+        ReleaseCommand::Version(kind) => {
+            project.release_version(kind, release_type, &project.config().develop_branch_name)
+        }
     }
 }
 
