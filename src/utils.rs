@@ -1,4 +1,4 @@
-use crate::commands::BumpKind;
+use crate::{commands::BumpKind, project::Project};
 use anyhow::{bail, Result};
 use dialoguer::theme::{ColorfulTheme, SimpleTheme, Theme};
 use log::debug;
@@ -71,7 +71,7 @@ pub fn can_ask_questions() -> bool {
 }
 
 struct ExitStackItem<'a> {
-    msg: &'static str,
+    msg: String,
     callback: Box<dyn FnOnce() + 'a>,
 }
 
@@ -92,13 +92,41 @@ impl<'a> Drop for ExitStack<'a> {
 }
 
 impl<'a> ExitStack<'a> {
-    pub fn remember(&mut self, msg: &'static str, f: impl FnOnce() + 'a) {
+    pub fn remember(&mut self, msg: impl Into<String>, f: impl FnOnce() + 'a) {
         self.history.push(ExitStackItem {
-            msg,
+            msg: msg.into(),
             callback: Box::new(f),
         })
     }
     pub fn forget(&mut self) {
         self.history.clear()
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum ObjectKind {
+    Release,
+    Hotfix,
+    Feature,
+    Bugfix,
+}
+
+impl std::fmt::Display for ObjectKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            ObjectKind::Release => "release",
+            ObjectKind::Hotfix => "hotfix",
+            ObjectKind::Feature => "feature",
+            ObjectKind::Bugfix => "bugfix",
+        })
+    }
+}
+
+impl ObjectKind {
+    pub fn get_start_point<'a>(&self, project: &'a Project) -> Result<&'a str> {
+        Ok(match self {
+            ObjectKind::Hotfix => &project.config().master_branch_name,
+            _ => &project.config().develop_branch_name,
+        })
     }
 }

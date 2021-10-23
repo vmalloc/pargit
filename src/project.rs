@@ -3,7 +3,9 @@ use crate::{
     config::Config,
     release::Release,
     repo::Repository,
-    utils::{can_ask_questions, get_color_theme, next_version, ExitStack, PathExt, ResultExt},
+    utils::{
+        can_ask_questions, get_color_theme, next_version, ExitStack, ObjectKind, PathExt, ResultExt,
+    },
     version_file::VersionFile,
 };
 use anyhow::{bail, format_err, Context, Result};
@@ -86,9 +88,9 @@ impl Project {
         self.repo.cleanup(&self.config.develop_branch_name)
     }
 
-    pub fn pargit_delete(&self, object_type: &str, name: Option<String>) -> Result<()> {
-        let release_name = self.resolve_name(object_type, name)?;
-        let branch_name = self.prefix(object_type, &release_name);
+    pub fn pargit_delete(&self, kind: ObjectKind, name: Option<String>) -> Result<()> {
+        let release_name = self.resolve_name(kind, name)?;
+        let branch_name = self.prefix(kind, &release_name);
         info!("Deleting {}...", branch_name);
 
         let mut branch = self.repo.find_branch(&branch_name)?;
@@ -113,23 +115,23 @@ impl Project {
 
     pub fn pargit_finish(
         &self,
-        object_type: &str,
+        kind: ObjectKind,
         name: Option<String>,
         dest_branch: &str,
     ) -> Result<()> {
-        let name = self.resolve_name(object_type, name)?;
+        let name = self.resolve_name(kind, name)?;
         debug!("Switching to branch {}", dest_branch);
         self.repo.switch_to_branch_name(dest_branch)?;
-        let branch_name = self.prefix(object_type, &name);
+        let branch_name = self.prefix(kind, &name);
         debug!("Merging {}", branch_name);
         self.repo
             .merge_branch_name(&branch_name, &format!("Merge {}", branch_name))?;
-        self.pargit_delete(object_type, Some(name))
+        self.pargit_delete(kind, Some(name))
     }
 
-    pub fn pargit_publish(&self, object_type: &str, name: Option<String>) -> Result<()> {
-        let name = self.resolve_name(object_type, name)?;
-        let branch_name = self.prefix(object_type, &name);
+    pub fn pargit_publish(&self, kind: ObjectKind, name: Option<String>) -> Result<()> {
+        let name = self.resolve_name(kind, name)?;
+        let branch_name = self.prefix(kind, &name);
         info!("Pushing {} to origin...", branch_name);
         let output = self
             .path
@@ -142,59 +144,44 @@ impl Project {
         Ok(())
     }
 
-    pub fn pargit_start(&self, branch_type: &str, name: &str, start_point: &str) -> Result<()> {
-        info!("Creating {} branch {}", branch_type, name);
-        let branch_name = self.prefix(branch_type, name);
+    pub fn pargit_start(&self, kind: ObjectKind, name: &str) -> Result<()> {
+        info!("Creating {} branch {}", kind, name);
+        let branch_name = self.prefix(kind, name);
         if self.repo.find_branch(branch_name).is_ok() {
-            bail!(
-                "{} {} already in progress. Finish it first",
-                branch_type,
-                name
-            );
+            bail!("{} {} already in progress. Finish it first", kind, name);
         }
         let b = self
             .repo
-            .create_branch(self.prefix(branch_type, name), Some(start_point))?;
+            .create_branch(self.prefix(kind, name), Some(kind.get_start_point(self)?))?;
 
         self.repo.switch_to_branch(&b)
     }
 
-    pub fn release_version(
-        &self,
-        bump_kind: BumpKind,
-        release_type: &str,
-        start_point: &str,
-    ) -> Result<()> {
+    pub fn release_version(&self, bump_kind: BumpKind, release_kind: ObjectKind) -> Result<()> {
         let mut history = ExitStack::default();
-        let release =
-            self.release_start(VersionSpec::Bump(bump_kind), release_type, start_point)?;
+        let release = self.release_start(VersionSpec::Bump(bump_kind), release_kind)?;
         let release_name = release.name.clone();
         let release_name_clone = release.name.clone();
-        history.remember("Delete release branch", move || {
-            self.pargit_delete("release", Some(release_name_clone))
+        history.remember(&format!("Delete {} branch", release_kind), move || {
+            self.pargit_delete(release_kind, Some(release_name_clone))
                 .ignore_errors()
         });
         if self.repo.is_dirty()? {
             self.repo.commit_all("Bump version")?;
         }
-        self.release_finish(Some(release_name), Some(&release.tag), release_type)?;
+        self.release_finish(Some(release_name), Some(&release.tag), release_kind)?;
         history.forget();
         Ok(())
     }
 
-    pub fn release_start(
-        &self,
-        spec: VersionSpec,
-        kind: &str,
-        start_point: &str,
-    ) -> Result<Release> {
+    pub fn release_start(&self, spec: VersionSpec, kind: ObjectKind) -> Result<Release> {
         let release = self.resolve_release(spec)?;
         let mut undo = ExitStack::default();
 
         if self.repo.has_tag(&release.tag)? {
             bail!("Tag {} already exists", release.tag);
         }
-        self.pargit_start(kind, &release.name, start_point)?;
+        self.pargit_start(kind, &release.name)?;
         undo.remember("Deleting release branch", || {
             self.pargit_delete(kind, None).ignore_errors()
         });
@@ -211,25 +198,25 @@ impl Project {
         &self,
         release_name: Option<String>,
         tag: Option<&str>,
-        release_type: &str,
+        release_kind: ObjectKind,
     ) -> Result<()> {
-        let release_name = self.resolve_name(release_type, release_name)?;
-        let release_branch_name = self.prefix(release_type, &release_name);
-        info!("Finishing {} {}", release_type, release_name);
+        let release_name = self.resolve_name(release_kind, release_name)?;
+        let release_branch_name = self.prefix(release_kind, &release_name);
+        info!("Finishing {} {}", release_kind, release_name);
         self.repo.switch_to_branch_name(&release_branch_name)?;
         self.check_pre_release()?;
 
-        let temp_branch_name = format!("in-progress-{}-{}", release_type, release_name);
+        let temp_branch_name = format!("in-progress-{}-{}", release_kind, release_name);
 
         self.repo
             .create_branch(&temp_branch_name, Some(&self.config.master_branch_name))?;
         info!("Switching to temporary branch");
         self.repo.switch_to_branch_name(&temp_branch_name)?;
-        info!("Merging {} branch", release_type);
+        info!("Merging {} branch", release_kind);
         self.repo
             .merge_branch_name(
                 &release_branch_name,
-                &format!("Merge {} branch {}", release_type, release_name),
+                &format!("Merge {} branch {}", release_kind, release_name),
             )
             .context("Failed merge")?;
         info!("Creating tag and pushing to remote master");
@@ -259,7 +246,7 @@ impl Project {
                 .delete_branch_name(&temp_branch_name)
                 .map_err(|e| error!("Failed deleting temporary branch: {:?}", e));
 
-            bail!("Failed pushing new {} - {:?}", release_type, e);
+            bail!("Failed pushing new {} - {:?}", release_kind, e);
         }
 
         info!("Push successful. Merging to local master");
@@ -281,29 +268,29 @@ impl Project {
             .find_branch(temp_branch_name)?
             .delete()
             .context("Failed deleting temporary branch")?;
-        self.pargit_delete(release_type, Some(release_name))?;
+        self.pargit_delete(release_kind, Some(release_name))?;
         info!("Pushing develop branch");
         self.path.shell("git push origin develop:develop")
     }
 
-    fn resolve_name(&self, object_type: &str, name: Option<impl Into<String>>) -> Result<String> {
+    fn resolve_name(&self, kind: ObjectKind, name: Option<impl Into<String>>) -> Result<String> {
         Ok(match name {
             Some(name) => name.into(),
             None => self
-                .current_name(object_type)
+                .current_name(kind)
                 .context("Cannot get release name from branch name")?,
         })
     }
 
-    fn prefix(&self, object_type: &str, s: &str) -> String {
-        format!("{}/{}", object_type, s)
+    fn prefix(&self, kind: ObjectKind, s: &str) -> String {
+        format!("{}/{}", kind, s)
     }
 
-    fn current_name(&self, object_type: &str) -> Result<String> {
+    fn current_name(&self, kind: ObjectKind) -> Result<String> {
         self.repo
             .current_branch_name()?
-            .strip_prefix(&format!("{}/", object_type))
-            .ok_or_else(|| format_err!("Could not get current release name"))
+            .strip_prefix(&format!("{}/", kind))
+            .ok_or_else(|| format_err!("Could not get current {} name", kind))
             .map(|s| s.to_owned())
     }
 
