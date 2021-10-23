@@ -1,10 +1,11 @@
 use std::path::PathBuf;
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use commands::{FlowCommand, ReleaseCommand, VersionCommand};
 use log::error;
 use project::Project;
 use structopt::StructOpt;
+use utils::ObjectKind;
 
 mod commands;
 mod config;
@@ -39,10 +40,10 @@ fn entry_point(opts: Opts) -> Result<()> {
 
     match opts.command {
         Configure => project.configure(),
-        Release(cmd) => process_release_command(&project, cmd, "release"),
-        Hotfix(cmd) => process_release_command(&project, cmd, "hotfix"),
-        Feature(cmd) => process_flow_command(&project, "feature", cmd),
-        Bugfix(cmd) => process_flow_command(&project, "bugfix", cmd),
+        Release(cmd) => process_release_command(&project, cmd, ObjectKind::Release),
+        Hotfix(cmd) => process_release_command(&project, cmd, ObjectKind::Hotfix),
+        Feature(cmd) => process_flow_command(&project, ObjectKind::Feature, cmd),
+        Bugfix(cmd) => process_flow_command(&project, ObjectKind::Bugfix, cmd),
         commands::Command::Version(VersionCommand::Bump(kind)) => project.bump_version(kind),
         Cleanup => project.pargit_cleanup(),
     }
@@ -51,37 +52,25 @@ fn entry_point(opts: Opts) -> Result<()> {
 fn process_release_command(
     project: &Project,
     cmd: ReleaseCommand,
-    release_type: &str,
+    release_kind: ObjectKind,
 ) -> Result<()> {
     use commands::ReleaseCommand::*;
-    let start_point = match release_type {
-        "release" => &project.config().develop_branch_name,
-        "hotfix" => &project.config().master_branch_name,
-        _ => bail!("Invalid release type: {:?}", release_type),
-    };
+
     match cmd {
-        Start { spec } => project
-            .release_start(spec, release_type, start_point)
-            .map(drop),
-        Publish { name } => project.pargit_publish(release_type, name),
-        ReleaseCommand::Delete { name } => project.pargit_delete(release_type, name),
-        Finish { name } => project.release_finish(name, None, release_type),
-        ReleaseCommand::Version(kind) => {
-            project.release_version(kind, release_type, &project.config().develop_branch_name)
-        }
+        Start { spec } => project.release_start(spec, release_kind).map(drop),
+        Publish { name } => project.pargit_publish(release_kind, name),
+        ReleaseCommand::Delete { name } => project.pargit_delete(release_kind, name),
+        Finish { name } => project.release_finish(name, None, release_kind),
+        ReleaseCommand::Version(kind) => project.release_version(kind, release_kind),
     }
 }
 
-fn process_flow_command(project: &Project, flow_name: &str, cmd: FlowCommand) -> Result<()> {
+fn process_flow_command(project: &Project, kind: ObjectKind, cmd: FlowCommand) -> Result<()> {
     match cmd {
-        FlowCommand::Delete { name } => project.pargit_delete(flow_name, name),
-        FlowCommand::Start { name } => {
-            project.pargit_start(flow_name, &name, &project.config().develop_branch_name)
-        }
-        FlowCommand::Publish { name } => project.pargit_publish(flow_name, name),
-        FlowCommand::Finish { name } => {
-            project.pargit_finish(flow_name, name, &project.config().develop_branch_name)
-        }
+        FlowCommand::Delete { name } => project.pargit_delete(kind, name),
+        FlowCommand::Start { name } => project.pargit_start(kind, &name),
+        FlowCommand::Publish { name } => project.pargit_publish(kind, name),
+        FlowCommand::Finish { name } => project.pargit_finish(kind, name, "develop"),
     }
 }
 
