@@ -4,7 +4,7 @@ description = "Git workflow utility"
 edition = "2018"
 homepage = "https://github.com/vmalloc/pargit"
 keywords = ["git", "workflow"]
-license = "MIT OR Apache-2.0"
+license = "MIT"
 name = "pargit"
 readme = "README.md"
 repository = "https://github.com/vmalloc/pargit"
@@ -21,7 +21,7 @@ git2 = "0.13.15"
 log = "0.4.11"
 pathdiff = "0.2.0"
 semver = "0.11.0"
-serde = { version = "1.0.119", features = ["derive"] }
+serde = {version = "1.0.119", features = ["derive"]}
 structopt = "0.3.21"
 strum = "0.20.0"
 strum_macros = "0.20.1"
