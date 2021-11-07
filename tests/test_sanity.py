@@ -11,9 +11,9 @@ def test_sanity(pargit):
 @pytest.mark.parametrize(
     "cmd", ["feature start blap", "release version minor", "release start 0.1.0"]
 )
-def test_no_master_branch_ask_create(pargit, cmd):
+def test_no_main_branch_ask_create(pargit, cmd):
     pargit.repo.into_rust_project()
-    pargit.repo.shell("git branch -d master")
+    pargit.repo.shell(f"git branch -d {pargit.main_branch()}")
     cmd = cmd.split()
     p = getattr(pargit, cmd[0]).spawn(*cmd[1:])
     p.expect("Create it?", timeout=3)
@@ -22,8 +22,8 @@ def test_no_master_branch_ask_create(pargit, cmd):
     assert p.wait() == 0
 
 
-def test_release_version_no_master_branch_cleans_up_properly(pargit):
-    pargit.repo.shell("git branch -d master")
+def test_release_version_no_main_branch_cleans_up_properly(pargit):
+    pargit.repo.shell(f"git branch -d {pargit.main_branch()}")
     with pytest.raises(subprocess.CalledProcessError):
         pargit.non_interactive().release_version_minor()
     assert pargit.repo.branches() == {"develop"}
@@ -36,7 +36,7 @@ def test_bump_version_fails(pargit):
 
     with pytest.raises(subprocess.CalledProcessError):
         pargit.release_version_minor()
-    assert pargit.repo.branches() == {"develop", "master"}
+    assert pargit.repo.branches() == {pargit.main_branch(), pargit.develop_branch()}
 
 
 def test_push_fails(pargit, remote_repo):
@@ -45,7 +45,7 @@ def test_push_fails(pargit, remote_repo):
 
     with pytest.raises(subprocess.CalledProcessError):
         pargit.release_version_minor()
-    assert pargit.repo.branches() == {"develop", "master"}
+    assert pargit.repo.branches() == {pargit.main_branch(), pargit.develop_branch()}
 
 
 @pytest.mark.parametrize("prefix", ["", "v"])

@@ -71,3 +71,10 @@ You can configure pargit by adding a `.pargit.toml` file in your project's root 
 ```toml
 tag_prefix = "" # prefix for tags, e.g. "v". Default is empty prefix
 ```
+
+You can also specify custom names for your production and development branches. By default at the moment, Pargit assumes the production branch name is `master` (but this is likely to change in the future):
+
+```toml
+master_branch_name = "master" # optional
+develop_branch_name = "develop" # optional
+```

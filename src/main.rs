@@ -70,7 +70,9 @@ fn process_flow_command(project: &Project, kind: ObjectKind, cmd: FlowCommand) -
         FlowCommand::Delete { name } => project.pargit_delete(kind, name),
         FlowCommand::Start { name } => project.pargit_start(kind, &name),
         FlowCommand::Publish { name } => project.pargit_publish(kind, name),
-        FlowCommand::Finish { name } => project.pargit_finish(kind, name, "develop"),
+        FlowCommand::Finish { name } => {
+            project.pargit_finish(kind, name, &project.config().develop_branch_name)
+        }
     }
 }
 

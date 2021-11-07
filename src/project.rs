@@ -43,10 +43,10 @@ impl Project {
 
     pub fn check_configuration(&self) -> Result<()> {
         self.repo.find_branch(&self.config.develop_branch_name)?;
-        self.ensure_master_branch().map(drop)
+        self.ensure_main_branch().map(drop)
     }
 
-    fn ensure_master_branch(&self) -> Result<()> {
+    fn ensure_main_branch(&self) -> Result<()> {
         match self.repo.find_branch(&self.config.master_branch_name) {
             Ok(_) => Ok(()),
             Err(e) => {
@@ -54,10 +54,16 @@ impl Project {
                     if e.code() == ErrorCode::NotFound
                         && can_ask_questions()
                         && Confirm::with_theme(get_color_theme().as_ref())
-                            .with_prompt("Master branch not found. Create it?")
+                            .with_prompt(format!(
+                                "{} branch not found. Create it?",
+                                self.config().master_branch_name
+                            ))
                             .interact()?
                     {
-                        self.repo.path().shell("git branch master origin/master")?;
+                        self.repo.path().shell(format!(
+                            "git branch {0} origin/{0}",
+                            self.config().master_branch_name
+                        ))?;
                         return Ok(());
                     }
                 }
@@ -219,7 +225,7 @@ impl Project {
                 &format!("Merge {} branch {}", release_kind, release_name),
             )
             .context("Failed merge")?;
-        info!("Creating tag and pushing to remote master");
+        info!("Creating tag and pushing to remote main branch");
         let tag = tag
             .map(String::from)
             .unwrap_or_else(|| self.config.get_tag_name(&release_name, None));
@@ -227,8 +233,11 @@ impl Project {
             .repo
             .create_tag(&tag)
             .and_then(|_| {
-                self.path
-                    .shell(format!("git push origin {}:master", temp_branch_name))
+                self.path.shell(format!(
+                    "git push origin {}:{}",
+                    temp_branch_name,
+                    self.config().master_branch_name
+                ))
             })
             .context("Failed tag and push");
 
@@ -405,7 +414,10 @@ impl Project {
             bail!("Repository became dirty after build attempt. Perhaps Cargo.lock was not a part of the last commit?");
         }
 
-        for branch_name in &["develop", "master"] {
+        for branch_name in &[
+            &self.config.develop_branch_name,
+            &self.config.master_branch_name,
+        ] {
             if !self.repo.is_branch_up_to_date(branch_name)? {
                 bail!("Develop branch is behind remote {0} branch. Update your local {0} branch before creating a release.", branch_name);
             }
