@@ -17,15 +17,23 @@ def remote_repo(tmpdir):
 
 
 @pytest.fixture
-def local_repo(tmpdir, remote_repo):
+def local_repo(tmpdir, remote_repo, main_branch, develop_branch):
     path = tmpdir / "local"
-    subprocess.check_call(f"git init {path}", shell=True)
+    subprocess.check_call(f"git init -b {main_branch} {path}", shell=True)
     returned = Repo(path)
     returned.shell(f"git remote add origin {remote_repo.path}")
     returned.configure()
+
+    with (path / ".pargit.toml").open("w") as f:
+        print(f'master_branch_name = "{main_branch}"', file=f)
+        print(f'develop_branch_name = "{develop_branch}"', file=f)
+
+    returned.shell("git add .")
     returned.shell("git commit -a -m init --allow-empty")
-    returned.shell("git checkout -b develop master")
-    returned.shell("git push origin -u develop:develop master:master")
+    returned.shell(f"git checkout -b {develop_branch} {main_branch}")
+    returned.shell(
+        f"git push origin -u {develop_branch}:{develop_branch} {main_branch}:{main_branch}"
+    )
     return returned
 
 
@@ -36,9 +44,24 @@ def pargit_binary():
 
 
 @pytest.fixture
-def pargit(local_repo, pargit_binary):
-    returned = Pargit(pargit_binary, local_repo)
+def pargit(local_repo, pargit_binary, develop_branch, main_branch):
+    returned = Pargit(
+        pargit_binary,
+        local_repo,
+        develop_branch=develop_branch,
+        main_branch=main_branch,
+    )
     return returned
+
+
+@pytest.fixture
+def develop_branch():
+    return "develop"
+
+
+@pytest.fixture(params=["master", "main"])
+def main_branch(request):
+    return request.param
 
 
 WORKDIR = pathlib.Path(".").resolve()
@@ -46,11 +69,20 @@ BINARY = WORKDIR / "target/debug/pargit"
 
 
 class Pargit:
-    def __init__(self, binary, repo):
+    def __init__(self, binary, repo, main_branch, develop_branch):
+        print("*** Initializing pargit repo at", repo.path)
         self.binary = binary
         self.repo = repo
         self.env = os.environ.copy()
         self.env["PARGIT_DISABLE_COLORS"] = "1"
+        self._main_branch = main_branch
+        self._develop_branch = develop_branch
+
+    def main_branch(self):
+        return self._main_branch
+
+    def develop_branch(self):
+        return self._develop_branch
 
     def pargit(self, *args, **kwargs):
         print(args)

@@ -2,8 +2,11 @@ import pytest
 import subprocess
 
 
-@pytest.mark.parametrize("branch", ["master", "develop"])
+@pytest.mark.parametrize(
+    "branch", [lambda p: p.main_branch(), lambda p: p.develop_branch()]
+)
 def test_develop_behind(pargit, capfd, branch):
+    branch = branch(pargit)
     pargit.repo.into_rust_project()
     pargit.repo.shell(f"git checkout {branch}")
     pargit.repo.shell("git commit -m test --allow-empty")
