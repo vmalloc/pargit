@@ -13,7 +13,10 @@ use dialoguer::{theme::ColorfulTheme, Confirm, Select};
 use git2::ErrorCode;
 use log::{debug, error, info};
 use semver::Version;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+};
 
 pub struct Project {
     path: PathBuf,
@@ -82,10 +85,12 @@ impl Project {
 
     pub fn bump_version(&self, bump_kind: BumpKind) -> Result<()> {
         debug!("Bumping version: {:?}", bump_kind);
-        let bumped_file = self
+        let bumped_files = self
             .get_version_file()?
             .ok_or_else(|| format_err!("Unable to find version file"))?;
-        bumped_file.bump(VersionSpec::Bump(bump_kind))?;
+        for bumped_file in bumped_files {
+            bumped_file.bump(VersionSpec::Bump(bump_kind))?;
+        }
         info!("Compiling project to lock version");
         self.compile()
     }
@@ -191,8 +196,10 @@ impl Project {
         undo.remember("Deleting release branch", || {
             self.pargit_delete(kind, None).ignore_errors()
         });
-        if let Some(version_file) = release.version_file.as_ref() {
-            version_file.bump(VersionSpec::Exact(release.version.clone()))?;
+        if let Some(version_files) = release.version_files.as_ref() {
+            for file in version_files {
+                file.bump(VersionSpec::Exact(release.version.clone()))?;
+            }
             info!("Compiling project to lock new version");
             self.compile()?;
         }
@@ -319,17 +326,17 @@ impl Project {
     }
 
     fn resolve_release(&self, version: VersionSpec) -> Result<Release> {
-        let version_file = self.get_version_file()?;
+        let version_files = self.get_version_file()?;
         Ok(match version {
             VersionSpec::Exact(version) => {
-                Release::version(&self.config, version, version_file, None)
+                Release::version(&self.config, version, version_files, None)
             }
             VersionSpec::Bump(kind) => {
-                if let Some(version_file) = version_file {
+                if let Some(version_files) = version_files {
                     Release::version(
                         &self.config,
-                        next_version(&version_file.version(), kind),
-                        Some(version_file),
+                        next_version(&version_files[0].version(), kind),
+                        Some(version_files),
                         None,
                     )
                 } else if let Some((existing_version, prefix)) =
@@ -369,8 +376,18 @@ impl Project {
         Ok(versions.into_iter().last())
     }
 
-    fn get_version_file(&self) -> Result<Option<VersionFile>> {
+    fn get_version_file(&self) -> Result<Option<Vec<VersionFile>>> {
         let version_files = self.get_version_files()?;
+
+        if version_files
+            .iter()
+            .map(|f| f.version())
+            .collect::<HashSet<_>>()
+            .len()
+            == 1
+        {
+            return Ok(Some(version_files));
+        }
 
         let index = if version_files.len() > 1 {
             let selections = version_files
@@ -394,7 +411,7 @@ impl Project {
             0
         };
 
-        Ok(version_files.into_iter().nth(index))
+        Ok(version_files.into_iter().nth(index).map(|file| vec![file]))
     }
 
     fn get_version_files(&self) -> Result<Vec<VersionFile>> {

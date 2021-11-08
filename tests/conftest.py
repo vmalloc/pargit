@@ -182,28 +182,49 @@ class Repo:
             ).splitlines()
         }
 
-    def into_rust_project(self):
-        (self.path / "src").mkdir()
-        with (self.path / "src/main.rs").open("w") as f:
-            f.write(
-                """
-fn main() {}
-            """
-            )
+    def into_rust_workspace(self):
         with (self.path / "Cargo.toml").open("w") as f:
             f.write(
                 """
-[package]
-edition = "2018"
-name = "testme"
-version = "0.1.0"
+[workspace]
+members = [
+    'crate1',
+    'crate2'
+]
 """
             )
+
+        for crate_name in ["crate1", "crate2"]:
+            crate_path = self.path / crate_name
+            make_rust_project(crate_path, crate_name)
+
+    def into_rust_project(self):
+        make_rust_project(self.path)
+
         self.shell("git add .")
         self.shell("git commit -a -m 'Convert to Rust'")
 
     def into_empty_project(self):
         self.shell("git commit -a --allow-empty -m init")
+
+
+def make_rust_project(path, name="proj"):
+    (path / "src").ensure(dir=True)
+    with (path / "src/main.rs").open("w") as f:
+        f.write(
+            """
+fn main() {}
+"""
+        )
+    with (path / "Cargo.toml").open("w") as f:
+        f.write(
+            f"""
+[package]
+edition = "2018"
+name = "{name}"
+version = "0.1.0"
+"""
+        )
 
 
 class Change:
