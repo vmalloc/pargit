@@ -19,23 +19,31 @@ use std::{
 };
 
 pub struct Project {
-    path: PathBuf,
+    repo_path: PathBuf,
+    project_path: PathBuf,
     pub repo: Repository,
     type_: Option<ProjectType>,
     config: Config,
 }
 
 impl Project {
-    pub fn new(path: &Path) -> Result<Self> {
-        let type_ = if path.join("Cargo.toml").exists() {
+    pub fn new(repo_path: &Path) -> Result<Self> {
+        let config = Config::load(repo_path)?;
+        let project_path = repo_path.join(
+            config
+                .project_subpath
+                .clone()
+                .unwrap_or_else(|| PathBuf::from(".")),
+        );
+        let type_ = if project_path.join("Cargo.toml").exists() {
             Some(ProjectType::Rust)
         } else {
             None
         };
-        let repo = Repository::on_path(path)?;
-        let config = Config::load(path)?;
+        let repo = Repository::on_path(repo_path)?;
         let returned = Self {
-            path: path.canonicalize()?,
+            repo_path: repo_path.canonicalize()?,
+            project_path: project_path.canonicalize()?,
             config,
             repo,
             type_,
@@ -77,7 +85,7 @@ impl Project {
 
     pub fn configure(&mut self) -> Result<()> {
         self.config.reconfigure()?;
-        self.config.save(&self.path)?;
+        self.config.save(&self.repo_path)?;
         Ok(())
     }
 
@@ -110,7 +118,7 @@ impl Project {
             let origin_name = parts.next().unwrap();
             let remote_branch_name = parts.next().unwrap();
             info!("Deleting remote branch {}", remote_branch_name);
-            self.path
+            self.repo_path
                 .shell(format!("git push {} :{}", origin_name, remote_branch_name))?;
         }
 
@@ -145,7 +153,7 @@ impl Project {
         let branch_name = self.prefix(kind, &name);
         info!("Pushing {} to origin...", branch_name);
         let output = self
-            .path
+            .repo_path
             .shell_output(format!("git push -u origin {0}:{0}", branch_name))?;
         for line in String::from_utf8_lossy(&output.stderr).lines() {
             if line.starts_with("remote:") {
@@ -240,7 +248,7 @@ impl Project {
             .repo
             .create_tag(&tag)
             .and_then(|_| {
-                self.path.shell(format!(
+                self.repo_path.shell(format!(
                     "git push origin {}:{}",
                     temp_branch_name,
                     self.config().master_branch_name
@@ -271,7 +279,7 @@ impl Project {
         self.repo
             .merge_branch_name(&temp_branch_name, "Merge temporary release branch")?;
         info!("Pushing tags");
-        self.path.shell("git push --tags")?;
+        self.repo_path.shell("git push --tags")?;
         self.repo
             .switch_to_branch_name(&self.config.develop_branch_name)?;
         info!("Merging to develop branch");
@@ -286,7 +294,7 @@ impl Project {
             .context("Failed deleting temporary branch")?;
         self.pargit_delete(release_kind, Some(release_name))?;
         info!("Pushing develop branch");
-        self.path.shell("git push origin develop:develop")
+        self.repo_path.shell("git push origin develop:develop")
     }
 
     fn resolve_name(&self, kind: ObjectKind, name: Option<impl Into<String>>) -> Result<String> {
@@ -315,7 +323,7 @@ impl Project {
             match type_ {
                 ProjectType::Rust => {
                     // info!("Compiling project (cargo check)...");
-                    self.path
+                    self.project_path
                         .shell("cargo check --workspace --tests")
                         .context("Failed building project")
                 }
@@ -393,7 +401,8 @@ impl Project {
             let selections = version_files
                 .iter()
                 .map(|version_file| {
-                    let relpath = pathdiff::diff_paths(version_file.path(), &self.path).unwrap();
+                    let relpath =
+                        pathdiff::diff_paths(version_file.path(), &self.project_path).unwrap();
                     relpath.to_string_lossy().to_string()
                 })
                 .collect::<Vec<_>>();

@@ -1,11 +1,14 @@
 use anyhow::Result;
 use dialoguer::{theme::ColorfulTheme, Input};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 const CONFIG_FILENAME: &str = ".pargit.toml";
 
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct Config {
+    #[serde(default)]
+    pub project_subpath: Option<PathBuf>,
+
     #[serde(default = "Default::default")]
     pub tag_prefix: String,
 

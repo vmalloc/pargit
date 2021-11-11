@@ -78,3 +78,8 @@ You can also specify custom names for your production and development branches. 
 master_branch_name = "master" # optional
 develop_branch_name = "develop" # optional
 ```
+
+For repositories in which the project being manipulated does not reside in the repository's root, you can set the project subpath configuration value:
+```toml
+project_subpath = "./project"
+```

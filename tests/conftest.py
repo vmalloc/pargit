@@ -1,4 +1,5 @@
 import pytest
+import toml
 from uuid import uuid4
 import os
 import sys
@@ -131,6 +132,20 @@ class ExecProxy:
 class Repo:
     def __init__(self, path):
         self.path = path
+
+    def configure_pargit(self, override):
+        pargit_toml_path = self.path / ".pargit.toml"
+
+        if pargit_toml_path.check():
+            config = toml.load(pargit_toml_path.open())
+        else:
+            config = {}
+        config.update(override)
+        toml.dump(config, pargit_toml_path.open("w"))
+
+    def get_toml_version(self, toml_path="Cargo.tmol"):
+        with (self.path / toml_path).open() as f:
+            return toml.load(f)["package"]["version"]
 
     def current_branch(self):
         return (
