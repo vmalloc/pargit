@@ -445,7 +445,7 @@ impl Project {
             &self.config.master_branch_name,
         ] {
             if !self.repo.is_branch_up_to_date(branch_name)? {
-                bail!("Develop branch is behind remote {0} branch. Update your local {0} branch before creating a release.", branch_name);
+                bail!("Local {0} branch is behind remote {0} branch. Update your local {0} branch before creating a release.", branch_name);
             }
         }
 
