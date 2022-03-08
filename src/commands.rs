@@ -16,6 +16,12 @@ pub enum Command {
 }
 
 #[derive(StructOpt)]
+pub struct ReleaseOptions {
+    #[structopt(long)]
+    pub no_pull: bool,
+}
+
+#[derive(StructOpt)]
 pub enum ReleaseCommand {
     Start {
         #[structopt(parse(try_from_str))]
@@ -28,9 +34,15 @@ pub enum ReleaseCommand {
         name: Option<String>,
     },
     Finish {
+        #[structopt(flatten)]
+        options: ReleaseOptions,
         name: Option<String>,
     },
-    Version(BumpKind),
+    Version {
+        #[structopt(flatten)]
+        options: ReleaseOptions,
+        kind: BumpKind,
+    },
 }
 
 #[derive(StructOpt)]

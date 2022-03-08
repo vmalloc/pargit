@@ -1,5 +1,5 @@
 use crate::{
-    commands::{BumpKind, VersionSpec},
+    commands::{BumpKind, ReleaseOptions, VersionSpec},
     config::Config,
     release::Release,
     repo::Repository,
@@ -11,7 +11,7 @@ use crate::{
 use anyhow::{bail, format_err, Context, Result};
 use dialoguer::{theme::ColorfulTheme, Confirm, Select};
 use git2::ErrorCode;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use semver::Version;
 use std::{
     collections::HashSet,
@@ -176,7 +176,12 @@ impl Project {
         self.repo.switch_to_branch(&b)
     }
 
-    pub fn release_version(&self, bump_kind: BumpKind, release_kind: ObjectKind) -> Result<()> {
+    pub fn release_version(
+        &self,
+        bump_kind: BumpKind,
+        release_kind: ObjectKind,
+        options: ReleaseOptions,
+    ) -> Result<()> {
         let mut history = ExitStack::default();
         let release = self.release_start(VersionSpec::Bump(bump_kind), release_kind)?;
         let release_name = release.name.clone();
@@ -188,7 +193,12 @@ impl Project {
         if self.repo.is_dirty()? {
             self.repo.commit_all("Bump version")?;
         }
-        self.release_finish(Some(release_name), Some(&release.tag), release_kind)?;
+        self.release_finish(
+            Some(release_name),
+            Some(&release.tag),
+            release_kind,
+            options,
+        )?;
         history.forget();
         Ok(())
     }
@@ -220,12 +230,13 @@ impl Project {
         release_name: Option<String>,
         tag: Option<&str>,
         release_kind: ObjectKind,
+        options: ReleaseOptions,
     ) -> Result<()> {
         let release_name = self.resolve_name(release_kind, release_name)?;
         let release_branch_name = self.prefix(release_kind, &release_name);
         info!("Finishing {} {}", release_kind, release_name);
         self.repo.switch_to_branch_name(&release_branch_name)?;
-        self.check_pre_release()?;
+        self.check_pre_release(&options)?;
 
         let temp_branch_name = format!("in-progress-{}-{}", release_kind, release_name);
 
@@ -432,7 +443,7 @@ impl Project {
     }
 
     // Checks
-    fn check_pre_release(&self) -> Result<()> {
+    fn check_pre_release(&self, options: &ReleaseOptions) -> Result<()> {
         info!("Running pre-release checks...");
 
         self.compile()?;
@@ -445,7 +456,13 @@ impl Project {
             &self.config.master_branch_name,
         ] {
             if !self.repo.is_branch_up_to_date(branch_name)? {
-                bail!("Local {0} branch is behind remote {0} branch. Update your local {0} branch before creating a release.", branch_name);
+                if !options.no_pull {
+                    warn!("Local branch {0} is behind remote. Attempting to pull recent changes (ff-only)...", branch_name);
+                    self.repo.pull_branch_from_remote(branch_name, true)?;
+                    assert!(self.repo.is_branch_up_to_date(branch_name)?);
+                } else {
+                    bail!("Local {0} branch is behind remote {0} branch. Update your local {0} branch before creating a release.", branch_name);
+                }
             }
         }
 

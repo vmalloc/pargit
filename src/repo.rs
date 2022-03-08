@@ -79,6 +79,17 @@ impl Repository {
         self.is_merged(remote, branch.get().peel_to_commit()?.id())
     }
 
+    pub fn pull_branch_from_remote(&self, branch_name: &str, ff_only: bool) -> Result<()> {
+        let prev_branch = self.current_branch_name()?;
+        let prev_branch = self.find_branch(&prev_branch)?;
+        let branch = self.find_branch(branch_name)?;
+        self.switch_to_branch(&branch)?;
+        let flags = if ff_only { "--ff-only" } else { "" };
+        self.path().shell(format!("git pull {flags}"))?;
+        self.switch_to_branch(&prev_branch)?;
+        Ok(())
+    }
+
     pub fn cleanup(&self, develop_branch_name: &str) -> Result<()> {
         self.git_fetch("origin")?;
         let develop_branch = self.find_branch(develop_branch_name)?;
