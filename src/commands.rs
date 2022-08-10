@@ -1,30 +1,35 @@
 use anyhow::Error;
+use clap::{ArgEnum, Parser, Subcommand};
 use semver::Version;
 use std::str::FromStr;
-use structopt::StructOpt;
 use strum_macros::EnumString;
 
-#[derive(StructOpt)]
+#[derive(Subcommand)]
 pub enum Command {
     Configure,
+    #[clap(subcommand)]
     Hotfix(ReleaseCommand),
+    #[clap(subcommand)]
     Release(ReleaseCommand),
+    #[clap(subcommand)]
     Feature(FlowCommand),
+    #[clap(subcommand)]
     Bugfix(FlowCommand),
+    #[clap(subcommand)]
     Version(VersionCommand),
     Cleanup,
 }
 
-#[derive(StructOpt)]
+#[derive(Parser)]
 pub struct ReleaseOptions {
-    #[structopt(long)]
+    #[clap(long)]
     pub no_pull: bool,
 }
 
-#[derive(StructOpt)]
+#[derive(Subcommand)]
 pub enum ReleaseCommand {
     Start {
-        #[structopt(parse(try_from_str))]
+        #[clap(parse(try_from_str))]
         spec: VersionSpec,
     },
     Publish {
@@ -34,18 +39,18 @@ pub enum ReleaseCommand {
         name: Option<String>,
     },
     Finish {
-        #[structopt(flatten)]
+        #[clap(flatten)]
         options: ReleaseOptions,
         name: Option<String>,
     },
     Version {
-        #[structopt(flatten)]
+        #[clap(flatten)]
         options: ReleaseOptions,
         kind: BumpKind,
     },
 }
 
-#[derive(StructOpt)]
+#[derive(Subcommand)]
 pub enum FlowCommand {
     Start { name: String },
     Publish { name: Option<String> },
@@ -53,12 +58,15 @@ pub enum FlowCommand {
     Finish { name: Option<String> },
 }
 
-#[derive(StructOpt)]
+#[derive(Subcommand)]
 pub enum VersionCommand {
-    Bump(BumpKind),
+    Bump {
+        #[clap(arg_enum)]
+        kind: BumpKind,
+    },
 }
 
-#[derive(StructOpt, Clone, Copy, EnumString, Debug)]
+#[derive(ArgEnum, Clone, Copy, EnumString, Debug)]
 #[strum(serialize_all = "snake_case")]
 pub enum BumpKind {
     Major,

@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
+use clap::Parser;
 use commands::{FlowCommand, ReleaseCommand, VersionCommand};
 use log::error;
 use project::Project;
-use structopt::StructOpt;
 use utils::ObjectKind;
 
 mod commands;
@@ -16,18 +16,18 @@ mod repo;
 mod utils;
 mod version_file;
 
-#[derive(StructOpt)]
+#[derive(Parser)]
 struct Opts {
-    #[structopt(short = "-v", parse(from_occurrences))]
+    #[clap(short = 'v', parse(from_occurrences))]
     verbosity: usize,
 
-    #[structopt(short = "-q", parse(from_occurrences))]
+    #[clap(short = 'q', parse(from_occurrences))]
     quietness: usize,
 
-    #[structopt(short = "-p", long = "--path", default_value = ".")]
+    #[clap(short = 'p', long = "--path", default_value = ".")]
     path: PathBuf,
 
-    #[structopt(subcommand)]
+    #[clap(subcommand)]
     command: commands::Command,
 }
 
@@ -44,7 +44,7 @@ fn entry_point(opts: Opts) -> Result<()> {
         Hotfix(cmd) => process_release_command(&project, cmd, ObjectKind::Hotfix),
         Feature(cmd) => process_flow_command(&project, ObjectKind::Feature, cmd),
         Bugfix(cmd) => process_flow_command(&project, ObjectKind::Bugfix, cmd),
-        commands::Command::Version(VersionCommand::Bump(kind)) => project.bump_version(kind),
+        commands::Command::Version(VersionCommand::Bump { kind }) => project.bump_version(kind),
         Cleanup => project.pargit_cleanup(),
     }
 }
