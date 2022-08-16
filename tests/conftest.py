@@ -170,7 +170,7 @@ class Repo:
         with (self.path / filename).open("w") as f:
             f.write(filename)
         self.shell("git add .")
-        self.shell("git commit -a -m {filename}")
+        self.shell(f"git commit -a -m {filename}")
         return Change(filename)
 
     def configure(self):
