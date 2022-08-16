@@ -57,7 +57,9 @@ fn process_release_command(
     use commands::ReleaseCommand::*;
 
     match cmd {
-        Start { spec } => project.release_start(spec, release_kind).map(drop),
+        Start { spec, from_ref } => project
+            .release_start(spec, release_kind, from_ref.as_deref())
+            .map(drop),
         Publish { name } => project.pargit_publish(release_kind, name),
         ReleaseCommand::Delete { name } => project.pargit_delete(release_kind, name),
         Finish { name, options } => project.release_finish(name, None, release_kind, options),
@@ -70,7 +72,9 @@ fn process_release_command(
 fn process_flow_command(project: &Project, kind: ObjectKind, cmd: FlowCommand) -> Result<()> {
     match cmd {
         FlowCommand::Delete { name } => project.pargit_delete(kind, name),
-        FlowCommand::Start { name } => project.pargit_start(kind, &name),
+        FlowCommand::Start { name, from_ref } => {
+            project.pargit_start(kind, &name, from_ref.as_deref())
+        }
         FlowCommand::Publish { name } => project.pargit_publish(kind, name),
         FlowCommand::Finish { name } => {
             project.pargit_finish(kind, name, &project.config().develop_branch_name)

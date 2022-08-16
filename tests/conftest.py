@@ -155,6 +155,12 @@ class Repo:
     def switch_to_branch(self, branch_name):
         self.shell(f"git checkout {branch_name}")
 
+    def create_branch(self, branch_name, start_point=""):
+        self.shell(f"git branch {branch_name} {start_point}")
+
+    def get_branch_sha(self, branch_name):
+        return self.shell_output(f"git rev-parse {branch_name}").strip()
+
     def __contains__(self, change):
         assert isinstance(change, Change)
         return (self.path / change.filename).exists()

@@ -31,6 +31,8 @@ pub enum ReleaseCommand {
     Start {
         #[clap(parse(try_from_str))]
         spec: VersionSpec,
+        #[clap(long = "--from-ref")]
+        from_ref: Option<String>,
     },
     Publish {
         name: Option<String>,
@@ -52,10 +54,20 @@ pub enum ReleaseCommand {
 
 #[derive(Subcommand)]
 pub enum FlowCommand {
-    Start { name: String },
-    Publish { name: Option<String> },
-    Delete { name: Option<String> },
-    Finish { name: Option<String> },
+    Start {
+        name: String,
+        #[clap(long = "--from-ref")]
+        from_ref: Option<String>,
+    },
+    Publish {
+        name: Option<String>,
+    },
+    Delete {
+        name: Option<String>,
+    },
+    Finish {
+        name: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
