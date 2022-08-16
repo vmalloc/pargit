@@ -143,7 +143,7 @@ class Repo:
         config.update(override)
         toml.dump(config, pargit_toml_path.open("w"))
 
-    def get_toml_version(self, toml_path="Cargo.tmol"):
+    def get_toml_version(self, toml_path):
         with (self.path / toml_path).open() as f:
             return toml.load(f)["package"]["version"]
 
