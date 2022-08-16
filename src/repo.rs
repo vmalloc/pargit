@@ -177,7 +177,12 @@ impl Repository {
         start_point: Option<impl AsRef<str>>,
     ) -> Result<Branch> {
         let start_point = match start_point {
-            Some(start_point) => self.find_branch(start_point)?.get().peel_to_commit()?,
+            Some(start_point) => self
+                .repo
+                .revparse_single(start_point.as_ref())?
+                .as_commit()
+                .unwrap()
+                .clone(),
             None => self.repo.head()?.peel_to_commit()?,
         };
         Ok(self

@@ -143,7 +143,7 @@ class Repo:
         config.update(override)
         toml.dump(config, pargit_toml_path.open("w"))
 
-    def get_toml_version(self, toml_path="Cargo.tmol"):
+    def get_toml_version(self, toml_path):
         with (self.path / toml_path).open() as f:
             return toml.load(f)["package"]["version"]
 
@@ -154,6 +154,12 @@ class Repo:
 
     def switch_to_branch(self, branch_name):
         self.shell(f"git checkout {branch_name}")
+
+    def create_branch(self, branch_name, start_point=""):
+        self.shell(f"git branch {branch_name} {start_point}")
+
+    def get_branch_sha(self, branch_name):
+        return self.shell_output(f"git rev-parse {branch_name}").strip()
 
     def __contains__(self, change):
         assert isinstance(change, Change)
@@ -170,7 +176,7 @@ class Repo:
         with (self.path / filename).open("w") as f:
             f.write(filename)
         self.shell("git add .")
-        self.shell("git commit -a -m {filename}")
+        self.shell(f"git commit -a -m {filename}")
         return Change(filename)
 
     def configure(self):

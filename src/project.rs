@@ -163,15 +163,16 @@ impl Project {
         Ok(())
     }
 
-    pub fn pargit_start(&self, kind: ObjectKind, name: &str) -> Result<()> {
+    pub fn pargit_start(&self, kind: ObjectKind, name: &str, from_ref: Option<&str>) -> Result<()> {
         info!("Creating {} branch {}", kind, name);
         let branch_name = self.prefix(kind, name);
         if self.repo.find_branch(branch_name).is_ok() {
             bail!("{} {} already in progress. Finish it first", kind, name);
         }
-        let b = self
-            .repo
-            .create_branch(self.prefix(kind, name), Some(kind.get_start_point(self)?))?;
+        let b = self.repo.create_branch(
+            self.prefix(kind, name),
+            Some(kind.get_start_point(self, from_ref)?),
+        )?;
 
         self.repo.switch_to_branch(&b)
     }
@@ -183,7 +184,7 @@ impl Project {
         options: ReleaseOptions,
     ) -> Result<()> {
         let mut history = ExitStack::default();
-        let release = self.release_start(VersionSpec::Bump(bump_kind), release_kind)?;
+        let release = self.release_start(VersionSpec::Bump(bump_kind), release_kind, None)?;
         let release_name = release.name.clone();
         let release_name_clone = release.name.clone();
         history.remember(&format!("Delete {} branch", release_kind), move || {
@@ -203,14 +204,19 @@ impl Project {
         Ok(())
     }
 
-    pub fn release_start(&self, spec: VersionSpec, kind: ObjectKind) -> Result<Release> {
+    pub fn release_start(
+        &self,
+        spec: VersionSpec,
+        kind: ObjectKind,
+        from_ref: Option<&str>,
+    ) -> Result<Release> {
         let release = self.resolve_release(spec)?;
         let mut undo = ExitStack::default();
 
         if self.repo.has_tag(&release.tag)? {
             bail!("Tag {} already exists", release.tag);
         }
-        self.pargit_start(kind, &release.name)?;
+        self.pargit_start(kind, &release.name, from_ref)?;
         undo.remember("Deleting release branch", || {
             self.pargit_delete(kind, None).ignore_errors()
         });

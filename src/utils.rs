@@ -123,10 +123,18 @@ impl std::fmt::Display for ObjectKind {
 }
 
 impl ObjectKind {
-    pub fn get_start_point<'a>(&self, project: &'a Project) -> Result<&'a str> {
-        Ok(match self {
-            ObjectKind::Hotfix => &project.config().master_branch_name,
-            _ => &project.config().develop_branch_name,
+    pub fn get_start_point<'a>(
+        &self,
+        project: &'a Project,
+        from_ref: Option<&'a str>,
+    ) -> Result<&'a str> {
+        Ok(if let Some(a_ref) = from_ref {
+            a_ref
+        } else {
+            match self {
+                ObjectKind::Hotfix => &project.config().master_branch_name,
+                _ => &project.config().develop_branch_name,
+            }
         })
     }
 }
