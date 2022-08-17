@@ -114,9 +114,8 @@ impl Project {
 
         let mut branch = self.repo.find_branch(&branch_name)?;
         if let Ok(upstream) = branch.upstream() {
-            let mut parts = upstream.name()?.unwrap().splitn(2, '/');
-            let origin_name = parts.next().unwrap();
-            let remote_branch_name = parts.next().unwrap();
+            let (origin_name, remote_branch_name) =
+                upstream.name()?.unwrap().split_once('/').unwrap();
             info!("Deleting remote branch {}", remote_branch_name);
             self.repo_path
                 .shell(format!("git push {} :{}", origin_name, remote_branch_name))?;

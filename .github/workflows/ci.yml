@@ -1,6 +1,11 @@
 name: Build
 
-on: [push]
+on:
+  - push
+  - pull_request
+  - workflow_dispatch # For manual triggering
+  - schedule:
+    - '12 12 * * 0'
 
 jobs:
   build:
@@ -48,10 +53,10 @@ jobs:
 
       - name: Publish (dry run)
         run: cargo publish --dry-run
-        if: github.ref != 'refs/heads/master'
+        if: github.ref != 'refs/heads/master' || ${{ github.event_name == 'schedule' }}
 
       - name: Publish on crates.io
         run: |
           cargo login ${{ secrets.CRATES_IO_TOKEN }}
           cargo publish
-        if: github.ref == 'refs/heads/master'
+        if: github.ref == 'refs/heads/master' && ${{ github.event_name != 'schedule' }}
