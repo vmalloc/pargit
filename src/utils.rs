@@ -1,4 +1,5 @@
 use crate::{commands::BumpKind, project::Project};
+
 use anyhow::{bail, Result};
 use dialoguer::theme::{ColorfulTheme, SimpleTheme, Theme};
 use log::debug;
@@ -7,6 +8,7 @@ use std::{
     path::Path,
     process::{Output, Stdio},
 };
+use strum_macros::EnumIter;
 
 pub trait ResultExt {
     fn ignore_errors(self);
@@ -103,7 +105,7 @@ impl<'a> ExitStack<'a> {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, EnumIter)]
 pub enum ObjectKind {
     Release,
     Hotfix,
