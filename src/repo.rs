@@ -1,8 +1,12 @@
+use crate::utils::ObjectKind;
 use crate::utils::PathExt;
+
 use anyhow::{bail, format_err, Context, Result};
 use git2::{Branch, BranchType, Oid, StatusOptions};
 use log::info;
 use std::path::Path;
+use strum::IntoEnumIterator;
+
 pub struct Repository {
     repo: git2::Repository,
 }
@@ -107,10 +111,7 @@ impl Repository {
             for branch in self.repo.branches(Some(BranchType::Local))? {
                 let (mut branch, _) = branch?;
                 let name = branch.name()?.unwrap();
-                if name.starts_with("feature/")
-                    || name.starts_with("bugfix/")
-                    || name.starts_with("release/")
-                {
+                if ObjectKind::iter().any(|kind| name.starts_with(format!("{}/", kind).as_str())) {
                     let branch_commit = branch.get().peel_to_commit()?.id();
                     if self.is_merged(branch_commit, remote_develop)?
                         && !self.is_merged(branch_commit, develop)?
