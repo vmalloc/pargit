@@ -32,7 +32,7 @@ impl Repository {
     }
 
     pub fn path(&self) -> &Path {
-        let mut returned = dbg!(self.repo.path());
+        let mut returned = self.repo.path();
         if returned.file_name().unwrap() == ".git" {
             returned = returned.parent().unwrap();
         }

@@ -64,7 +64,7 @@ pub fn get_color_theme() -> Box<dyn Theme> {
     if std::env::var("PARGIT_DISABLE_COLORS").is_ok() {
         Box::new(SimpleTheme)
     } else {
-        Box::new(ColorfulTheme::default())
+        Box::<ColorfulTheme>::default()
     }
 }
 
