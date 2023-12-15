@@ -18,6 +18,27 @@ def remote_repo(tmpdir):
 
 
 @pytest.fixture
+def submodule(local_repo, tmpdir):
+    submodule_repo = Repo(tmpdir / "submodule_repo")
+    submodule_repo.init(branch="master")
+    submodule_repo.configure()
+
+    subprocess.check_call(
+        f"git commit -m init --allow-empty", cwd=submodule_repo.path, shell=True
+    )
+
+    submodule_repo.create_branch("develop")
+    submodule_repo.switch_to_branch("develop")
+
+    local_repo.shell(
+        f"git -c protocol.file.allow=always submodule add {submodule_repo.path} submodule"
+    )
+    returned = Repo(local_repo.path / "submodule")
+    returned.create_branch("master")
+    return returned
+
+
+@pytest.fixture
 def local_repo(tmpdir, remote_repo, main_branch, develop_branch):
     path = tmpdir / "local"
     subprocess.check_call(f"git init -b {main_branch} {path}", shell=True)
@@ -49,6 +70,17 @@ def pargit(local_repo, pargit_binary, develop_branch, main_branch):
     returned = Pargit(
         pargit_binary,
         local_repo,
+        develop_branch=develop_branch,
+        main_branch=main_branch,
+    )
+    return returned
+
+
+@pytest.fixture
+def submodule_pargit(submodule, pargit_binary, develop_branch, main_branch):
+    returned = Pargit(
+        pargit_binary,
+        submodule,
         develop_branch=develop_branch,
         main_branch=main_branch,
     )
@@ -133,6 +165,13 @@ class Repo:
     def __init__(self, path):
         self.path = path
 
+    def init(self, *, branch=None):
+        cmd = "git init"
+        if branch is not None:
+            cmd += f" -b {branch}"
+        cmd += f" {self.path}"
+        subprocess.check_call(cmd, shell=True)
+
     def configure_pargit(self, override):
         pargit_toml_path = self.path / ".pargit.toml"
 
@@ -157,6 +196,9 @@ class Repo:
 
     def create_branch(self, branch_name, start_point=""):
         self.shell(f"git branch {branch_name} {start_point}")
+
+    def delete_branch(self, branch_name):
+        self.shell(f"git branch -D {branch_name}")
 
     def get_branch_sha(self, branch_name):
         return self.shell_output(f"git rev-parse {branch_name}").strip()

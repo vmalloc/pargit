@@ -18,10 +18,10 @@ mod version_file;
 
 #[derive(Parser)]
 struct Opts {
-    #[clap(short = 'v', parse(from_occurrences))]
+    #[clap(global = true, short = 'v', parse(from_occurrences))]
     verbosity: usize,
 
-    #[clap(short = 'q', parse(from_occurrences))]
+    #[clap(global = true, short = 'q', parse(from_occurrences))]
     quietness: usize,
 
     #[clap(short = 'p', long = "--path", default_value = ".")]

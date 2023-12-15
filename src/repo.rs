@@ -13,7 +13,10 @@ pub struct Repository {
 
 impl Repository {
     pub fn on_path(p: impl AsRef<Path>) -> Result<Self> {
-        let repo = git2::Repository::open(p.as_ref())?;
+        let p = p.as_ref();
+        let p = p.canonicalize().context("Cannot canonicalize path")?;
+        log::debug!("Opening repository on path {p:?}");
+        let repo = git2::Repository::open(&p)?;
 
         let returned = Self { repo };
 
@@ -29,9 +32,16 @@ impl Repository {
     }
 
     pub fn path(&self) -> &Path {
-        let returned = self.repo.path();
-        assert_eq!(returned.file_name().unwrap(), ".git");
-        returned.parent().unwrap()
+        let mut returned = dbg!(self.repo.path());
+        if returned.file_name().unwrap() == ".git" {
+            returned = returned.parent().unwrap();
+        }
+        assert!(
+            returned.join(".git").exists() || returned.join("HEAD").exists(),
+            "Repository {:?} does not seem like a git repository",
+            returned
+        );
+        returned
     }
 
     pub fn is_dirty(&self) -> Result<bool> {
