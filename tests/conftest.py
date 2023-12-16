@@ -1,11 +1,12 @@
-import pytest
-import toml
-from uuid import uuid4
+# pylint: disable=redefined-outer-name,missing-docstring
 import os
-import sys
-import pexpect
+from uuid import uuid4
 import subprocess
 import pathlib
+
+import pytest
+import toml
+import pexpect
 
 
 @pytest.fixture
@@ -22,9 +23,10 @@ def submodule(local_repo, tmpdir):
     submodule_repo = Repo(tmpdir / "submodule_repo")
     submodule_repo.init(branch="master")
     submodule_repo.configure()
+    submodule_repo.into_rust_project()
 
     subprocess.check_call(
-        f"git commit -m init --allow-empty", cwd=submodule_repo.path, shell=True
+        "git commit -m init --allow-empty", cwd=submodule_repo.path, shell=True
     )
 
     submodule_repo.create_branch("develop")
@@ -102,7 +104,7 @@ BINARY = WORKDIR / "target/debug/pargit"
 
 
 class Pargit:
-    def __init__(self, binary, repo, main_branch, develop_branch):
+    def __init__(self, binary, repo, main_branch="master", develop_branch="develop"):
         print("*** Initializing pargit repo at", repo.path)
         self.binary = binary
         self.repo = repo

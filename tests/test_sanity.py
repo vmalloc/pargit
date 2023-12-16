@@ -22,7 +22,11 @@ def test_start_from_ref_sanity(pargit, start_type, from_ref, develop_branch):
     if from_ref in (FromRef.NEW_BRANCH_NAME, FromRef.NEW_BRANCH_REF):
         branch_name = "a_new_branch"
         pargit.repo.create_branch(branch_name, develop_branch)
-        from_ref_val = branch_name if from_ref == FromRef.NEW_BRANCH_NAME else pargit.repo.get_branch_sha(branch_name)
+        from_ref_val = (
+            branch_name
+            if from_ref == FromRef.NEW_BRANCH_NAME
+            else pargit.repo.get_branch_sha(branch_name)
+        )
     else:
         branch_name = develop_branch
         from_ref_val = develop_branch if from_ref == FromRef.FROM_DEVELOP else None
@@ -55,7 +59,7 @@ def test_release_version_no_main_branch_cleans_up_properly(pargit):
 
 def test_bump_version_fails(pargit):
     pargit.repo.into_rust_project()
-    with open(pargit.repo.path / "Cargo.toml", "a") as f:
+    with open(pargit.repo.path / "Cargo.toml", "a", encoding="utf8") as f:
         f.write("xxx")
 
     with pytest.raises(subprocess.CalledProcessError):
@@ -88,6 +92,8 @@ def test_cleanup_sanity(pargit, develop_branch, main_branch):
         pargit.repo.create_branch(branch_name)
         pargit.repo.switch_to_branch(branch_name)
         pargit.repo.commit_change()
-        pargit.repo.shell(f"git push origin -u {branch_name}:{branch_name} {branch_name}:{develop_branch}")
+        pargit.repo.shell(
+            f"git push origin -u {branch_name}:{branch_name} {branch_name}:{develop_branch}"
+        )
     pargit.cleanup()
     assert pargit.repo.branches() == {develop_branch, main_branch}
