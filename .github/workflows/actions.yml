@@ -1,11 +1,12 @@
-name: CI
+name: Build
 
 on:
   push:
   pull_request:
-  workflow_dispatch: # For manual triggering
-  schedule: # Runs on default branch only
-    - cron: "12 12 * * 0"
+  workflow_dispatch:  # For manual triggering
+  schedule:  # Runs on default branch only
+    - cron: '12 12 * * 0'
+
 
 jobs:
   build:
