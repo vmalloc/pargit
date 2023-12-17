@@ -3,11 +3,11 @@ import subprocess
 
 
 @pytest.mark.parametrize(
-    "branch", [lambda p: p.main_branch(), lambda p: p.develop_branch()]
+    "branch", [lambda c: c.master_branch_name, lambda c: c.develop_branch_name]
 )
 @pytest.mark.parametrize("allow_pull", [True, False])
-def test_develop_behind(pargit, capfd, branch, allow_pull):
-    branch = branch(pargit)
+def test_develop_behind(pargit, capfd, branch, allow_pull, branch_config):
+    branch = branch(branch_config)
     pargit.repo.into_rust_project()
     pargit.repo.shell(f"git checkout {branch}")
     pargit.repo.shell("git commit -m test --allow-empty")

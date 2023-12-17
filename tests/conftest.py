@@ -9,6 +9,35 @@ import toml
 import pexpect
 
 
+class BranchConfig:
+    def __init__(
+        self, master_branch_name: str, develop_branch_name: str, customize: bool
+    ):
+        self.master_branch_name = master_branch_name
+        self.develop_branch_name = develop_branch_name
+        self.customize = customize
+
+
+@pytest.fixture(
+    params=[
+        BranchConfig(
+            develop_branch_name="develop", master_branch_name="master", customize=True
+        ),
+        BranchConfig(
+            develop_branch_name="develop", master_branch_name="master", customize=False
+        ),
+        BranchConfig(
+            develop_branch_name="develop", master_branch_name="main", customize=True
+        ),
+        BranchConfig(
+            develop_branch_name="dev", master_branch_name="main", customize=True
+        ),
+    ]
+)
+def branch_config(request) -> BranchConfig:
+    return request.param
+
+
 @pytest.fixture
 def remote_repo(tmpdir):
     path = tmpdir / "remote"
@@ -68,23 +97,26 @@ def pargit_binary():
 
 
 @pytest.fixture
-def pargit(local_repo, pargit_binary, develop_branch, main_branch):
+def pargit(local_repo, pargit_binary, branch_config):
     returned = Pargit(
         pargit_binary,
         local_repo,
-        develop_branch=develop_branch,
-        main_branch=main_branch,
     )
+    if branch_config.customize:
+        returned.repo.configure_pargit(
+            {
+                "develop_branch_name": branch_config.develop_branch_name,
+                "master_branch_name": branch_config.master_branch_name,
+            }
+        )
     return returned
 
 
 @pytest.fixture
-def submodule_pargit(submodule, pargit_binary, develop_branch, main_branch):
+def submodule_pargit(submodule, pargit_binary):
     returned = Pargit(
         pargit_binary,
         submodule,
-        develop_branch=develop_branch,
-        main_branch=main_branch,
     )
     return returned
 
@@ -104,20 +136,12 @@ BINARY = WORKDIR / "target/debug/pargit"
 
 
 class Pargit:
-    def __init__(self, binary, repo, main_branch="master", develop_branch="develop"):
+    def __init__(self, binary, repo):
         print("*** Initializing pargit repo at", repo.path)
         self.binary = binary
         self.repo = repo
         self.env = os.environ.copy()
         self.env["PARGIT_DISABLE_COLORS"] = "1"
-        self._main_branch = main_branch
-        self._develop_branch = develop_branch
-
-    def main_branch(self):
-        return self._main_branch
-
-    def develop_branch(self):
-        return self._develop_branch
 
     def pargit(self, *args, **kwargs):
         print(args)
