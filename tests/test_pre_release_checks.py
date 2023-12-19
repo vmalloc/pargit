@@ -13,7 +13,7 @@ def test_develop_behind(pargit, capfd, branch, allow_pull, branch_config):
     pargit.repo.shell("git commit -m test --allow-empty")
     pargit.repo.shell(f"git push -u origin {branch}")
     pargit.repo.shell("git reset --hard HEAD^")
-    pargit.repo.shell("git checkout develop")
+    pargit.repo.shell(f"git checkout {branch_config.develop_branch_name}")
     if allow_pull:
         pargit.release_version_minor()
     else:

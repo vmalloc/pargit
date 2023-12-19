@@ -39,9 +39,9 @@ def test_start_from_ref_sanity(pargit, start_type, from_ref, develop_branch):
 @pytest.mark.parametrize(
     "cmd", ["feature start blap", "release version minor", "release start 0.1.0"]
 )
-def test_no_main_branch_ask_create(pargit, cmd):
+def test_no_main_branch_ask_create(pargit, cmd, main_branch):
     pargit.repo.into_rust_project()
-    pargit.repo.shell(f"git branch -d {pargit.main_branch()}")
+    pargit.repo.shell(f"git branch -d {main_branch}")
     cmd = cmd.split()
     p = getattr(pargit, cmd[0]).spawn(*cmd[1:])
     p.expect("Create it?", timeout=3)
@@ -50,30 +50,32 @@ def test_no_main_branch_ask_create(pargit, cmd):
     assert p.wait() == 0
 
 
-def test_release_version_no_main_branch_cleans_up_properly(pargit):
-    pargit.repo.shell(f"git branch -d {pargit.main_branch()}")
+def test_release_version_no_main_branch_cleans_up_properly(
+    pargit, main_branch, develop_branch
+):
+    pargit.repo.shell(f"git branch -d {main_branch}")
     with pytest.raises(subprocess.CalledProcessError):
         pargit.non_interactive().release_version_minor()
-    assert pargit.repo.branches() == {"develop"}
+    assert pargit.repo.branches() == {develop_branch}
 
 
-def test_bump_version_fails(pargit):
+def test_bump_version_fails(pargit, main_branch, develop_branch):
     pargit.repo.into_rust_project()
     with open(pargit.repo.path / "Cargo.toml", "a", encoding="utf8") as f:
         f.write("xxx")
 
     with pytest.raises(subprocess.CalledProcessError):
         pargit.release_version_minor()
-    assert pargit.repo.branches() == {pargit.main_branch(), pargit.develop_branch()}
+    assert pargit.repo.branches() == {main_branch, develop_branch}
 
 
-def test_push_fails(pargit, remote_repo):
+def test_push_fails(pargit, remote_repo, main_branch, develop_branch):
     pargit.repo.into_rust_project()
     shutil.rmtree(remote_repo.path)
 
     with pytest.raises(subprocess.CalledProcessError):
         pargit.release_version_minor()
-    assert pargit.repo.branches() == {pargit.main_branch(), pargit.develop_branch()}
+    assert pargit.repo.branches() == {main_branch, develop_branch}
 
 
 @pytest.mark.parametrize("prefix", ["", "v"])

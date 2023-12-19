@@ -109,7 +109,7 @@ def pargit(local_repo, pargit_binary, branch_config):
         returned.repo.configure_pargit(
             {
                 "develop_branch_name": branch_config.develop_branch_name,
-                "master_branch_name": branch_config.main_branch_name,
+                "main_branch_name": branch_config.main_branch_name,
             }
         )
     return returned
@@ -125,12 +125,12 @@ def submodule_pargit(submodule, pargit_binary):
 
 
 @pytest.fixture
-def develop_branch(branch_config):
+def develop_branch(branch_config) -> str:
     return branch_config.develop_branch_name
 
 
 @pytest.fixture
-def main_branch(branch_config):
+def main_branch(branch_config) -> str:
     return branch_config.main_branch_name
 
 
