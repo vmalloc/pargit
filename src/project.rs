@@ -58,7 +58,7 @@ impl Project {
     }
 
     fn ensure_main_branch(&self) -> Result<()> {
-        match self.repo.find_branch(&self.config.master_branch_name) {
+        match self.repo.find_branch(&self.config.main_branch_name) {
             Ok(_) => Ok(()),
             Err(e) => {
                 if let Some(e) = e.downcast_ref::<git2::Error>() {
@@ -67,13 +67,13 @@ impl Project {
                         && Confirm::with_theme(get_color_theme().as_ref())
                             .with_prompt(format!(
                                 "{} branch not found. Create it?",
-                                self.config().master_branch_name
+                                self.config().main_branch_name
                             ))
                             .interact()?
                     {
                         self.repo.path().shell(format!(
                             "git branch {0} origin/{0}",
-                            self.config().master_branch_name
+                            self.config().main_branch_name
                         ))?;
                         return Ok(());
                     }
@@ -246,7 +246,7 @@ impl Project {
         let temp_branch_name = format!("in-progress-{}-{}", release_kind, release_name);
 
         self.repo
-            .create_branch(&temp_branch_name, Some(&self.config.master_branch_name))?;
+            .create_branch(&temp_branch_name, Some(&self.config.main_branch_name))?;
         info!("Switching to temporary branch");
         self.repo.switch_to_branch_name(&temp_branch_name)?;
         info!("Merging {} branch", release_kind);
@@ -267,7 +267,7 @@ impl Project {
                 self.repo_path.shell(format!(
                     "git push origin {}:{}",
                     temp_branch_name,
-                    self.config().master_branch_name
+                    self.config().main_branch_name
                 ))
             })
             .context("Failed tag and push");
@@ -291,7 +291,7 @@ impl Project {
 
         info!("Push successful. Merging to local master");
         self.repo
-            .switch_to_branch_name(&self.config.master_branch_name)?;
+            .switch_to_branch_name(&self.config.main_branch_name)?;
         self.repo
             .merge_branch_name(&temp_branch_name, "Merge temporary release branch")?;
         info!("Pushing tags");
@@ -300,8 +300,8 @@ impl Project {
             .switch_to_branch_name(&self.config.develop_branch_name)?;
         info!("Merging to develop branch");
         self.repo.merge_branch_name(
-            &self.config.master_branch_name,
-            &format!("Merge {} branch", self.config.master_branch_name),
+            &self.config.main_branch_name,
+            &format!("Merge {} branch", self.config.main_branch_name),
         )?;
 
         self.repo
@@ -310,7 +310,10 @@ impl Project {
             .context("Failed deleting temporary branch")?;
         self.pargit_delete(release_kind, Some(release_name))?;
         info!("Pushing develop branch");
-        self.repo_path.shell("git push origin develop:develop")
+        self.repo_path.shell(format!(
+            "git push origin {0}:{0}",
+            self.config.develop_branch_name
+        ))
     }
 
     fn resolve_name(&self, kind: ObjectKind, name: Option<impl Into<String>>) -> Result<String> {
@@ -458,7 +461,7 @@ impl Project {
 
         for branch_name in &[
             &self.config.develop_branch_name,
-            &self.config.master_branch_name,
+            &self.config.main_branch_name,
         ] {
             if !self.repo.is_branch_up_to_date(branch_name)? {
                 if !options.no_pull {

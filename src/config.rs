@@ -12,14 +12,14 @@ pub struct Config {
     #[serde(default = "Default::default")]
     pub tag_prefix: String,
 
-    #[serde(default = "default_master_branch")]
-    pub master_branch_name: String,
+    #[serde(default = "default_main_branch", alias = "master_branch_name")]
+    pub main_branch_name: String,
 
     #[serde(default = "default_develop_branch")]
     pub develop_branch_name: String,
 }
 
-fn default_master_branch() -> String {
+fn default_main_branch() -> String {
     "master".into()
 }
 fn default_develop_branch() -> String {
@@ -62,7 +62,7 @@ impl Config {
     pub fn reconfigure(&mut self) -> Result<()> {
         assign!(self.tag_prefix, "Tag prefix to use");
         assign!(
-            self.master_branch_name,
+            self.main_branch_name,
             "Name of the branch to be used as master/main branch"
         );
         assign!(

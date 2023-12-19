@@ -3,7 +3,7 @@ import subprocess
 
 
 @pytest.mark.parametrize(
-    "branch", [lambda c: c.master_branch_name, lambda c: c.develop_branch_name]
+    "branch", [lambda c: c.main_branch_name, lambda c: c.develop_branch_name]
 )
 @pytest.mark.parametrize("allow_pull", [True, False])
 def test_develop_behind(pargit, capfd, branch, allow_pull, branch_config):

@@ -134,7 +134,7 @@ impl ObjectKind {
             a_ref
         } else {
             match self {
-                ObjectKind::Hotfix => &project.config().master_branch_name,
+                ObjectKind::Hotfix => &project.config().main_branch_name,
                 _ => &project.config().develop_branch_name,
             }
         })

@@ -11,26 +11,29 @@ import pexpect
 
 class BranchConfig:
     def __init__(
-        self, master_branch_name: str, develop_branch_name: str, customize: bool
+        self, main_branch_name: str, develop_branch_name: str, customize: bool
     ):
-        self.master_branch_name = master_branch_name
+        self.main_branch_name = main_branch_name
         self.develop_branch_name = develop_branch_name
         self.customize = customize
+
+    def __repr__(self):
+        return f"<master={self.main_branch_name}, dev={self.develop_branch_name}, customize={self.customize}>"
 
 
 @pytest.fixture(
     params=[
         BranchConfig(
-            develop_branch_name="develop", master_branch_name="master", customize=True
+            develop_branch_name="develop", main_branch_name="master", customize=True
         ),
         BranchConfig(
-            develop_branch_name="develop", master_branch_name="master", customize=False
+            develop_branch_name="develop", main_branch_name="master", customize=False
         ),
         BranchConfig(
-            develop_branch_name="develop", master_branch_name="main", customize=True
+            develop_branch_name="develop", main_branch_name="main", customize=True
         ),
         BranchConfig(
-            develop_branch_name="dev", master_branch_name="main", customize=True
+            develop_branch_name="dev", main_branch_name="main", customize=True
         ),
     ]
 )
@@ -78,7 +81,7 @@ def local_repo(tmpdir, remote_repo, main_branch, develop_branch):
     returned.configure()
 
     with (path / ".pargit.toml").open("w") as f:
-        print(f'master_branch_name = "{main_branch}"', file=f)
+        print(f'main_branch_name = "{main_branch}"', file=f)
         print(f'develop_branch_name = "{develop_branch}"', file=f)
 
     returned.shell("git add .")
@@ -106,7 +109,7 @@ def pargit(local_repo, pargit_binary, branch_config):
         returned.repo.configure_pargit(
             {
                 "develop_branch_name": branch_config.develop_branch_name,
-                "master_branch_name": branch_config.master_branch_name,
+                "master_branch_name": branch_config.main_branch_name,
             }
         )
     return returned
@@ -122,13 +125,13 @@ def submodule_pargit(submodule, pargit_binary):
 
 
 @pytest.fixture
-def develop_branch():
-    return "develop"
+def develop_branch(branch_config):
+    return branch_config.develop_branch_name
 
 
-@pytest.fixture(params=["master", "main"])
-def main_branch(request):
-    return request.param
+@pytest.fixture
+def main_branch(branch_config):
+    return branch_config.main_branch_name
 
 
 WORKDIR = pathlib.Path(".").resolve()
