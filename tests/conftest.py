@@ -41,6 +41,26 @@ def branch_config(request) -> BranchConfig:
     return request.param
 
 
+@pytest.fixture(
+    params=[
+        BranchConfig(
+            develop_branch_name="develop", main_branch_name="master", customize=True
+        ),
+        BranchConfig(
+            develop_branch_name="develop", main_branch_name="master", customize=False
+        ),
+        BranchConfig(
+            develop_branch_name="develop", main_branch_name="main", customize=True
+        ),
+        BranchConfig(
+            develop_branch_name="dev", main_branch_name="main", customize=True
+        ),
+    ]
+)
+def submodule_branch_config(request) -> BranchConfig:
+    return request.param
+
+
 @pytest.fixture
 def remote_repo(tmpdir):
     path = tmpdir / "remote"
@@ -51,24 +71,29 @@ def remote_repo(tmpdir):
 
 
 @pytest.fixture
-def submodule(local_repo, tmpdir):
+def submodule(local_repo, tmpdir, submodule_branch_config):
     submodule_repo = Repo(tmpdir / "submodule_repo")
-    submodule_repo.init(branch="master")
-    submodule_repo.configure()
-    submodule_repo.into_rust_project()
+    submodule_repo.init(branch=submodule_branch_config.main_branch_name)
+    submodule_repo.configure_git()
+
+    if submodule_branch_config.customize:
+        submodule_repo.configure_branch_names(submodule_branch_config)
 
     subprocess.check_call(
-        "git commit -m init --allow-empty", cwd=submodule_repo.path, shell=True
+        "git add . && git commit -m init --allow-empty",
+        cwd=submodule_repo.path,
+        shell=True,
     )
 
-    submodule_repo.create_branch("develop")
-    submodule_repo.switch_to_branch("develop")
+    submodule_repo.create_branch(submodule_branch_config.develop_branch_name)
+    submodule_repo.switch_to_branch(submodule_branch_config.develop_branch_name)
 
     local_repo.shell(
         f"git -c protocol.file.allow=always submodule add {submodule_repo.path} submodule"
     )
     returned = Repo(local_repo.path / "submodule")
-    returned.create_branch("master")
+    returned.create_branch(submodule_branch_config.main_branch_name)
+    returned.configure_git()
     return returned
 
 
@@ -78,7 +103,7 @@ def local_repo(tmpdir, remote_repo, main_branch, develop_branch):
     subprocess.check_call(f"git init -b {main_branch} {path}", shell=True)
     returned = Repo(path)
     returned.shell(f"git remote add origin {remote_repo.path}")
-    returned.configure()
+    returned.configure_git()
 
     with (path / ".pargit.toml").open("w") as f:
         print(f'main_branch_name = "{main_branch}"', file=f)
@@ -106,12 +131,7 @@ def pargit(local_repo, pargit_binary, branch_config):
         local_repo,
     )
     if branch_config.customize:
-        returned.repo.configure_pargit(
-            {
-                "develop_branch_name": branch_config.develop_branch_name,
-                "main_branch_name": branch_config.main_branch_name,
-            }
-        )
+        returned.repo.configure_branch_names(branch_config)
     return returned
 
 
@@ -138,8 +158,129 @@ WORKDIR = pathlib.Path(".").resolve()
 BINARY = WORKDIR / "target/debug/pargit"
 
 
+class Repo:
+    def __init__(self, path):
+        self.path = path
+
+    def init(self, *, branch=None):
+        cmd = "git init"
+        if branch is not None:
+            cmd += f" -b {branch}"
+        cmd += f" {self.path}"
+        subprocess.check_call(cmd, shell=True)
+
+    def configure_pargit(self, override):
+        pargit_toml_path = self.path / ".pargit.toml"
+
+        if pargit_toml_path.check():
+            config = toml.load(pargit_toml_path.open())
+        else:
+            config = {}
+        config.update(override)
+        toml.dump(config, pargit_toml_path.open("w"))
+
+    def configure_branch_names(self, branch_config: BranchConfig):
+        self.configure_pargit(
+            {
+                "main_branch_name": branch_config.main_branch_name,
+                "develop_branch_name": branch_config.develop_branch_name,
+            }
+        )
+
+    def get_cargo_toml_version(self):
+        return self.get_toml_version("Cargo.toml")
+
+    def get_toml_version(self, toml_path):
+        with (self.path / toml_path).open() as f:
+            return toml.load(f)["package"]["version"]
+
+    def current_branch(self):
+        return (
+            (self.path / ".git/HEAD").open().read().split("ref: refs/heads/")[1].strip()
+        )
+
+    def switch_to_branch(self, branch_name):
+        self.shell(f"git checkout {branch_name}")
+
+    def create_branch(self, branch_name, start_point=""):
+        self.shell(f"git branch {branch_name} {start_point}")
+
+    def delete_branch(self, branch_name):
+        self.shell(f"git branch -D {branch_name}")
+
+    def get_branch_sha(self, branch_name):
+        return self.shell_output(f"git rev-parse {branch_name}").strip()
+
+    def __contains__(self, change):
+        assert isinstance(change, Change)
+        return (self.path / change.filename).exists()
+
+    def tags(self):
+        return set(self.shell_output("git tag").splitlines())
+
+    def tag(self, tag):
+        self.shell(f"git tag {tag}")
+
+    def commit_change(self):
+        filename = str(uuid4())
+        with (self.path / filename).open("w") as f:
+            f.write(filename)
+        self.shell("git add .")
+        self.shell(f"git commit -a -m {filename}")
+        return Change(filename)
+
+    def configure_git(self):
+        self.shell("git config user.email someuser@something.com")
+        self.shell("git config user.name someuser")
+
+    def shell(self, cmd):
+        subprocess.check_call(cmd, shell=True, cwd=self.path)
+
+    def shell_output(self, cmd):
+        return subprocess.check_output(cmd, shell=True, cwd=self.path, encoding="utf-8")
+
+    def clone_to(self, path):
+        subprocess.check_call(f"git clone {self.path} {path}", shell=True)
+        returned = Repo(path)
+        returned.configure_git()
+        return returned
+
+    def branches(self):
+        return {
+            line.replace("*", "").strip()
+            for line in subprocess.check_output(
+                "git branch", cwd=self.path, encoding="utf-8", shell=True
+            ).splitlines()
+        }
+
+    def into_rust_workspace(self):
+        with (self.path / "Cargo.toml").open("w") as f:
+            f.write(
+                """
+[workspace]
+members = [
+    'crate1',
+    'crate2'
+]
+"""
+            )
+
+        for crate_name in ["crate1", "crate2"]:
+            crate_path = self.path / crate_name
+            make_rust_project(crate_path, crate_name)
+
+    def into_rust_project(self):
+        make_rust_project(self.path)
+
+        self.shell("git add .")
+        self.shell("git commit -a -m 'Convert to Rust'")
+
+    def into_empty_project(self):
+        self.shell("git commit -a --allow-empty -m init")
+
+
 class Pargit:
-    def __init__(self, binary, repo):
+    def __init__(self, binary, repo: Repo):
         print("*** Initializing pargit repo at", repo.path)
         self.binary = binary
         self.repo = repo
@@ -188,116 +329,6 @@ class ExecProxy:
             cwd=self.pargit.repo.path,
             env=self.env,
         )
-
-
-class Repo:
-    def __init__(self, path):
-        self.path = path
-
-    def init(self, *, branch=None):
-        cmd = "git init"
-        if branch is not None:
-            cmd += f" -b {branch}"
-        cmd += f" {self.path}"
-        subprocess.check_call(cmd, shell=True)
-
-    def configure_pargit(self, override):
-        pargit_toml_path = self.path / ".pargit.toml"
-
-        if pargit_toml_path.check():
-            config = toml.load(pargit_toml_path.open())
-        else:
-            config = {}
-        config.update(override)
-        toml.dump(config, pargit_toml_path.open("w"))
-
-    def get_toml_version(self, toml_path):
-        with (self.path / toml_path).open() as f:
-            return toml.load(f)["package"]["version"]
-
-    def current_branch(self):
-        return (
-            (self.path / ".git/HEAD").open().read().split("ref: refs/heads/")[1].strip()
-        )
-
-    def switch_to_branch(self, branch_name):
-        self.shell(f"git checkout {branch_name}")
-
-    def create_branch(self, branch_name, start_point=""):
-        self.shell(f"git branch {branch_name} {start_point}")
-
-    def delete_branch(self, branch_name):
-        self.shell(f"git branch -D {branch_name}")
-
-    def get_branch_sha(self, branch_name):
-        return self.shell_output(f"git rev-parse {branch_name}").strip()
-
-    def __contains__(self, change):
-        assert isinstance(change, Change)
-        return (self.path / change.filename).exists()
-
-    def tags(self):
-        return set(self.shell_output("git tag").splitlines())
-
-    def tag(self, tag):
-        self.shell(f"git tag {tag}")
-
-    def commit_change(self):
-        filename = str(uuid4())
-        with (self.path / filename).open("w") as f:
-            f.write(filename)
-        self.shell("git add .")
-        self.shell(f"git commit -a -m {filename}")
-        return Change(filename)
-
-    def configure(self):
-        self.shell("git config user.email someuser@something.com")
-        self.shell("git config user.name someuser")
-
-    def shell(self, cmd):
-        subprocess.check_call(cmd, shell=True, cwd=self.path)
-
-    def shell_output(self, cmd):
-        return subprocess.check_output(cmd, shell=True, cwd=self.path, encoding="utf-8")
-
-    def clone_to(self, path):
-        subprocess.check_call(f"git clone {self.path} {path}", shell=True)
-        returned = Repo(path)
-        returned.configure()
-        return returned
-
-    def branches(self):
-        return {
-            line.replace("*", "").strip()
-            for line in subprocess.check_output(
-                "git branch", cwd=self.path, encoding="utf-8", shell=True
-            ).splitlines()
-        }
-
-    def into_rust_workspace(self):
-        with (self.path / "Cargo.toml").open("w") as f:
-            f.write(
-                """
-[workspace]
-members = [
-    'crate1',
-    'crate2'
-]
-"""
-            )
-
-        for crate_name in ["crate1", "crate2"]:
-            crate_path = self.path / crate_name
-            make_rust_project(crate_path, crate_name)
-
-    def into_rust_project(self):
-        make_rust_project(self.path)
-
-        self.shell("git add .")
-        self.shell("git commit -a -m 'Convert to Rust'")
-
-    def into_empty_project(self):
-        self.shell("git commit -a --allow-empty -m init")
 
 
 def make_rust_project(path, name="proj"):
