@@ -5,20 +5,25 @@ use anyhow::{bail, format_err, Context, Result};
 use git2::{Branch, BranchType, Oid, StatusOptions};
 use log::info;
 use std::path::Path;
+use std::path::PathBuf;
 use strum::IntoEnumIterator;
 
 pub struct Repository {
     repo: git2::Repository,
+    path: PathBuf,
 }
 
 impl Repository {
     pub fn on_path(p: impl AsRef<Path>) -> Result<Self> {
         let p = p.as_ref();
-        let p = p.canonicalize().context("Cannot canonicalize path")?;
-        log::debug!("Opening repository on path {p:?}");
-        let repo = git2::Repository::open(&p)?;
+        let path = p.canonicalize().context("Cannot canonicalize path")?;
 
-        let returned = Self { repo };
+        log::debug!("Opening repository on path {path:?}");
+
+        let repo = git2::Repository::open(&path).context("Failed opening repository")?;
+        log::debug!("Repository opened. Reported path is {:?}", repo.path());
+
+        let returned = Self { repo, path };
 
         if returned.is_dirty()? {
             bail!("Repository is dirty!");
@@ -32,16 +37,7 @@ impl Repository {
     }
 
     pub fn path(&self) -> &Path {
-        let mut returned = self.repo.path();
-        if returned.file_name().unwrap() == ".git" {
-            returned = returned.parent().unwrap();
-        }
-        assert!(
-            returned.join(".git").exists() || returned.join("HEAD").exists(),
-            "Repository {:?} does not seem like a git repository",
-            returned
-        );
-        returned
+        &self.path
     }
 
     pub fn is_dirty(&self) -> Result<bool> {

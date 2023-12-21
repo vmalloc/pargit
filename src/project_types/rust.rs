@@ -26,7 +26,7 @@ pub fn find_cargo_tomls(repo: &Repository) -> Result<Vec<VersionFile>> {
             }
 
             let toml: toml_edit::Document = read_to_string(path)
-                .context("Failed reading file")?
+                .with_context(|| format!("Failed reading file {path:?} "))?
                 .parse()
                 .context("Failed parsing Cargo.toml file")?;
 
@@ -46,7 +46,7 @@ pub fn find_cargo_tomls(repo: &Repository) -> Result<Vec<VersionFile>> {
 
 pub fn write_cargo_toml_version(path: &Path, new_version: &Version) -> Result<()> {
     let mut toml: toml_edit::Document = read_to_string(path)
-        .context("Failed reading file")?
+        .with_context(|| format!("Failed reading file {path:?}"))?
         .parse()
         .context("Failed parsing Cargo.toml file")?;
 

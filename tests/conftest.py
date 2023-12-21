@@ -71,49 +71,59 @@ def remote_repo(tmpdir):
 
 
 @pytest.fixture
-def submodule(local_repo, tmpdir, submodule_branch_config):
+def submodule_upstream(tmpdir, submodule_branch_config):
     submodule_repo = Repo(tmpdir / "submodule_repo")
-    submodule_repo.init(branch=submodule_branch_config.main_branch_name)
-    submodule_repo.configure_git()
+    submodule_repo.init(branch=submodule_branch_config.main_branch_name, bare=True)
 
-    if submodule_branch_config.customize:
-        submodule_repo.configure_branch_names(submodule_branch_config)
-
-    subprocess.check_call(
-        "git add . && git commit -m init --allow-empty",
-        cwd=submodule_repo.path,
-        shell=True,
+    _local_checkout = set_local_tracking_repo(
+        tmpdir / "submodule_tmp_checkout", submodule_repo, submodule_branch_config
     )
 
-    submodule_repo.create_branch(submodule_branch_config.develop_branch_name)
-    submodule_repo.switch_to_branch(submodule_branch_config.develop_branch_name)
+    return submodule_repo
 
+
+@pytest.fixture
+def submodule(local_repo, tmpdir, submodule_branch_config, submodule_upstream):
     local_repo.shell(
-        f"git -c protocol.file.allow=always submodule add {submodule_repo.path} submodule"
+        f"git -c protocol.file.allow=always submodule add {submodule_upstream.path} submodule"
     )
     returned = Repo(local_repo.path / "submodule")
-    returned.create_branch(submodule_branch_config.main_branch_name)
+    returned.create_branch(
+        submodule_branch_config.develop_branch_name,
+        f"origin/{submodule_branch_config.develop_branch_name}",
+    )
     returned.configure_git()
     return returned
 
 
 @pytest.fixture
-def local_repo(tmpdir, remote_repo, main_branch, develop_branch):
+def local_repo(tmpdir, remote_repo, branch_config):
     path = tmpdir / "local"
-    subprocess.check_call(f"git init -b {main_branch} {path}", shell=True)
+
+    return set_local_tracking_repo(path, remote_repo, branch_config)
+
+
+def set_local_tracking_repo(
+    path: pathlib.Path, remote_repo, branch_config: BranchConfig
+):
+    subprocess.check_call(
+        f"git init -b {branch_config.main_branch_name} {path}", shell=True
+    )
     returned = Repo(path)
     returned.shell(f"git remote add origin {remote_repo.path}")
     returned.configure_git()
 
     with (path / ".pargit.toml").open("w") as f:
-        print(f'main_branch_name = "{main_branch}"', file=f)
-        print(f'develop_branch_name = "{develop_branch}"', file=f)
+        print(f'main_branch_name = "{branch_config.main_branch_name}"', file=f)
+        print(f'develop_branch_name = "{branch_config.develop_branch_name}"', file=f)
 
     returned.shell("git add .")
     returned.shell("git commit -a -m init --allow-empty")
-    returned.shell(f"git checkout -b {develop_branch} {main_branch}")
     returned.shell(
-        f"git push origin -u {develop_branch}:{develop_branch} {main_branch}:{main_branch}"
+        f"git checkout -b {branch_config.develop_branch_name} {branch_config.main_branch_name}"
+    )
+    returned.shell(
+        f"git push origin -u {branch_config.develop_branch_name}:{branch_config.develop_branch_name} {branch_config.main_branch_name}:{branch_config.main_branch_name}"
     )
     return returned
 
@@ -136,11 +146,12 @@ def pargit(local_repo, pargit_binary, branch_config):
 
 
 @pytest.fixture
-def submodule_pargit(submodule, pargit_binary):
+def submodule_pargit(submodule, pargit_binary, submodule_branch_config):
     returned = Pargit(
         pargit_binary,
         submodule,
     )
+    returned.repo.switch_to_branch(submodule_branch_config.develop_branch_name)
     return returned
 
 
@@ -162,11 +173,13 @@ class Repo:
     def __init__(self, path):
         self.path = path
 
-    def init(self, *, branch=None):
+    def init(self, *, branch=None, bare=False):
         cmd = "git init"
         if branch is not None:
             cmd += f" -b {branch}"
         cmd += f" {self.path}"
+        if bare:
+            cmd += f" --bare"
         subprocess.check_call(cmd, shell=True)
 
     def configure_pargit(self, override):
@@ -270,6 +283,7 @@ members = [
             make_rust_project(crate_path, crate_name)
 
     def into_rust_project(self):
+        print("Making", self.path, "into a Rust project...")
         make_rust_project(self.path)
 
         self.shell("git add .")
