@@ -21,7 +21,7 @@ def test_submodule_version_bump_rust(submodule_pargit):
     assert submodule_pargit.repo.get_cargo_toml_version() == "0.2.0"
 
 
-def test_submodule_release_version_rust(submodule_pargit, submodule_branch_config):
+def test_submodule_release_version_rust(submodule_pargit):
     submodule_pargit.repo.into_rust_project()
     assert submodule_pargit.repo.get_cargo_toml_version() == "0.1.0"
     submodule_pargit.release_version("minor")
