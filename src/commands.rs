@@ -1,5 +1,5 @@
 use anyhow::Error;
-use clap::{ArgEnum, Parser, Subcommand};
+use clap::{Parser, Subcommand};
 use semver::Version;
 use std::str::FromStr;
 use strum_macros::EnumString;
@@ -29,7 +29,6 @@ pub struct ReleaseOptions {
 #[derive(Subcommand)]
 pub enum ReleaseCommand {
     Start {
-        #[clap(parse(try_from_str))]
         spec: VersionSpec,
         #[clap(long = "--from-ref")]
         from_ref: Option<String>,
@@ -72,13 +71,10 @@ pub enum FlowCommand {
 
 #[derive(Subcommand)]
 pub enum VersionCommand {
-    Bump {
-        #[clap(arg_enum)]
-        kind: BumpKind,
-    },
+    Bump { kind: BumpKind },
 }
 
-#[derive(ArgEnum, Clone, Copy, EnumString, Debug)]
+#[derive(Clone, Copy, EnumString, Debug)]
 #[strum(serialize_all = "snake_case")]
 pub enum BumpKind {
     Major,
@@ -86,6 +82,7 @@ pub enum BumpKind {
     Patch,
 }
 
+#[derive(Clone)]
 pub enum VersionSpec {
     Exact(Version),
     Bump(BumpKind),

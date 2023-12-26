@@ -17,14 +17,15 @@ mod utils;
 mod version_file;
 
 #[derive(Parser)]
+#[command(version)]
 struct Opts {
-    #[clap(global = true, short = 'v', parse(from_occurrences))]
-    verbosity: usize,
+    #[clap(global = true, short = 'v', action=clap::ArgAction::Count)]
+    verbosity: u8,
 
-    #[clap(global = true, short = 'q', parse(from_occurrences))]
-    quietness: usize,
+    #[clap(global = true, short = 'q', action=clap::ArgAction::Count)]
+    quietness: u8,
 
-    #[clap(short = 'p', long = "--path", default_value = ".")]
+    #[clap(short = 'p', long = "path", default_value = ".")]
     path: PathBuf,
 
     #[clap(subcommand)]
@@ -83,7 +84,8 @@ fn process_flow_command(project: &Project, kind: ObjectKind, cmd: FlowCommand) -
 }
 
 fn main() {
-    let opts = Opts::from_args();
+    let opts = Opts::parse();
+
     env_logger::Builder::new()
         .filter_level(match (opts.verbosity + 2).saturating_sub(opts.quietness) {
             0 => log::LevelFilter::Error,
