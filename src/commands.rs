@@ -30,7 +30,7 @@ pub struct ReleaseOptions {
 pub enum ReleaseCommand {
     Start {
         spec: VersionSpec,
-        #[clap(long = "--from-ref")]
+        #[clap(long = "from-ref")]
         from_ref: Option<String>,
     },
     Publish {
@@ -55,7 +55,7 @@ pub enum ReleaseCommand {
 pub enum FlowCommand {
     Start {
         name: String,
-        #[clap(long = "--from-ref")]
+        #[clap(long = "from-ref")]
         from_ref: Option<String>,
     },
     Publish {
