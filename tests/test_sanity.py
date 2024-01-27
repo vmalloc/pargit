@@ -99,3 +99,15 @@ def test_cleanup_sanity(pargit, develop_branch, main_branch):
         )
     pargit.cleanup()
     assert pargit.repo.branches() == {develop_branch, main_branch}
+
+
+def test_missing_cargo_toml(pargit):
+    pargit.repo.into_rust_project()
+    (pargit.repo.path / "Cargo.toml").unlink()
+    with pytest.raises(subprocess.CalledProcessError) as caught:
+        pargit.version_bump_minor(capture=True)
+    assert "could not find Cargo.toml file" in caught.stderr
+
+
+def test_version_bump_prefixed_when_no_versioned_files_exist(pargit):
+    raise NotImplementedError

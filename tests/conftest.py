@@ -83,7 +83,7 @@ def submodule_upstream(tmpdir, submodule_branch_config):
 
 
 @pytest.fixture
-def submodule(local_repo, tmpdir, submodule_branch_config, submodule_upstream):
+def submodule(local_repo, submodule_branch_config, submodule_upstream):
     local_repo.shell(
         f"git -c protocol.file.allow=always submodule add {submodule_upstream.path} submodule"
     )
@@ -123,7 +123,8 @@ def set_local_tracking_repo(
         f"git checkout -b {branch_config.develop_branch_name} {branch_config.main_branch_name}"
     )
     returned.shell(
-        f"git push origin -u {branch_config.develop_branch_name}:{branch_config.develop_branch_name} {branch_config.main_branch_name}:{branch_config.main_branch_name}"
+        "git push origin -u "
+        f"{branch_config.develop_branch_name}:{branch_config.develop_branch_name} {branch_config.main_branch_name}:{branch_config.main_branch_name}"
     )
     return returned
 
@@ -169,9 +170,41 @@ WORKDIR = pathlib.Path(".").resolve()
 BINARY = WORKDIR / "target/debug/pargit"
 
 
-class Repo:
+class Crate:
     def __init__(self, path):
         self.path = path
+        self.toml_path = self.path / "Cargo.toml"
+
+    def update_toml_file(self, override: dict):
+        with self.toml_path.open() as f:
+            contents = toml.load(f)
+        self._patch(contents, override)
+        with self.toml_path.open("w") as f:
+            toml.dump(contents, f)
+
+    def iter_rust_workspace_crates(self):
+        for crate in self.path.listdir():
+            toml_path = crate / "Cargo.toml"
+            if not toml_path.exists():
+                continue
+            yield Crate(crate)
+
+    def _patch(self, contents, override):
+        for key, value in override.items():
+            if isinstance(value, dict):
+                self._patch(contents.setdefault(key, {}), value)
+            elif value is None:
+                del contents[key]
+            else:
+                contents[key] = value
+
+    def cargo_check(self):
+        subprocess.check_call("cargo check --workspace", shell=True, cwd=self.path)
+
+
+class Repo:
+    def __init__(self, path):
+        self.path = pathlib.Path(path)
 
     def init(self, *, branch=None, bare=False):
         cmd = "git init"
@@ -179,13 +212,13 @@ class Repo:
             cmd += f" -b {branch}"
         cmd += f" {self.path}"
         if bare:
-            cmd += f" --bare"
+            cmd += " --bare"
         subprocess.check_call(cmd, shell=True)
 
     def configure_pargit(self, override):
         pargit_toml_path = self.path / ".pargit.toml"
 
-        if pargit_toml_path.check():
+        if pargit_toml_path.exists():
             config = toml.load(pargit_toml_path.open())
         else:
             config = {}
@@ -281,6 +314,7 @@ members = [
         for crate_name in ["crate1", "crate2"]:
             crate_path = self.path / crate_name
             make_rust_project(crate_path, crate_name)
+        return Crate(self.path)
 
     def into_rust_project(self):
         print("Making", self.path, "into a Rust project...")
@@ -303,6 +337,9 @@ class Pargit:
 
     def pargit(self, *args, **kwargs):
         print(args)
+        if kwargs.pop("capture", False):
+            kwargs["stdout"] = subprocess.PIPE
+            kwargs["stderr"] = subprocess.PIPE
         subprocess.check_call(
             f'{self.binary} {" ".join(args)}', shell=True, cwd=self.repo.path, **kwargs
         )
@@ -323,9 +360,9 @@ class ExecProxy:
         self.command = command
         self.env = env
 
-    def __call__(self, *args):
+    def __call__(self, *args, **kwargs):
         command = self.get_command(*args)
-        return self.pargit.pargit(*command, env=self.env)
+        return self.pargit.pargit(*command, env=self.env, **kwargs)
 
     def get_command(self, *args):
         command = self.command.split("_")
@@ -346,7 +383,7 @@ class ExecProxy:
 
 
 def make_rust_project(path, name="proj"):
-    (path / "src").ensure(dir=True)
+    (path / "src").mkdir(exist_ok=True)
     with (path / "src/main.rs").open("w") as f:
         f.write(
             """

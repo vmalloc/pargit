@@ -1,4 +1,4 @@
-use crate::{commands::BumpKind, project::Project};
+use crate::{commands::BumpKind, pargit::Pargit};
 
 use anyhow::{bail, Result};
 use dialoguer::theme::{ColorfulTheme, SimpleTheme, Theme};
@@ -127,7 +127,7 @@ impl std::fmt::Display for ObjectKind {
 impl ObjectKind {
     pub fn get_start_point<'a>(
         &self,
-        project: &'a Project,
+        project: &'a Pargit,
         from_ref: Option<&'a str>,
     ) -> Result<&'a str> {
         Ok(if let Some(a_ref) = from_ref {

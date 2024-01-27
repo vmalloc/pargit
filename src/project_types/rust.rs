@@ -41,6 +41,11 @@ pub fn find_cargo_tomls(repo: &Repository) -> Result<Vec<VersionFile>> {
             }
         }
     }
+
+    if returned.is_empty() {
+        anyhow::bail!("Could not find Cargo.toml files in {:?}", repo.path());
+    }
+
     Ok(returned)
 }
 
