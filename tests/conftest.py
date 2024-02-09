@@ -183,7 +183,8 @@ class Crate:
             toml.dump(contents, f)
 
     def iter_rust_workspace_crates(self):
-        for crate in self.path.listdir():
+        for crate in self.path.glob("*/src"):
+            crate = crate.parent
             toml_path = crate / "Cargo.toml"
             if not toml_path.exists():
                 continue
@@ -275,6 +276,10 @@ class Repo:
         self.shell(f"git commit -a -m {filename}")
         return Change(filename)
 
+    def commit_all_changes(self):
+        self.shell("git add .")
+        self.shell("git commit -a -m 'commit all changes'")
+
     def configure_git(self):
         self.shell("git config user.email someuser@something.com")
         self.shell("git config user.name someuser")
@@ -313,6 +318,7 @@ members = [
 
         for crate_name in ["crate1", "crate2"]:
             crate_path = self.path / crate_name
+            crate_path.mkdir(parents=True)
             make_rust_project(crate_path, crate_name)
         return Crate(self.path)
 
@@ -336,12 +342,17 @@ class Pargit:
         self.env["PARGIT_DISABLE_COLORS"] = "1"
 
     def pargit(self, *args, **kwargs):
-        print(args)
+        print("Running", args, kwargs)
         if kwargs.pop("capture", False):
             kwargs["stdout"] = subprocess.PIPE
             kwargs["stderr"] = subprocess.PIPE
-        subprocess.check_call(
-            f'{self.binary} {" ".join(args)}', shell=True, cwd=self.repo.path, **kwargs
+        subprocess.run(
+            f'{self.binary} {" ".join(args)}',
+            shell=True,
+            cwd=self.repo.path,
+            check=True,
+            encoding="utf-8",
+            **kwargs,
         )
 
     def non_interactive(self):

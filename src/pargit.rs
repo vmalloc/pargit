@@ -94,7 +94,14 @@ impl Pargit {
     pub fn bump_version(&self, bump_kind: BumpKind) -> Result<()> {
         debug!("Bumping version: {:?}", bump_kind);
 
-        for bumped_file in self.get_version_files_to_bump()? {
+        let files_to_bump = self.get_version_files_to_bump()?;
+
+        if files_to_bump.is_empty() {
+            bail!("Could not find version files to bump");
+        }
+
+        for bumped_file in files_to_bump {
+            debug!("Bumping version file {bumped_file:?}...");
             bumped_file.bump(VersionSpec::Bump(bump_kind))?;
         }
 
@@ -396,8 +403,9 @@ impl Pargit {
     }
 
     fn get_version_files_to_bump(&self) -> Result<Vec<VersionFile>> {
-        let version_files = self.get_potential_version_files()?;
+        let version_files = self.get_all_version_files()?;
 
+        // if we have a single version - we should bump them all
         if version_files
             .iter()
             .map(|f| f.version())
@@ -434,7 +442,7 @@ impl Pargit {
         Ok(version_files.into_iter().nth(index).into_iter().collect())
     }
 
-    fn get_potential_version_files(&self) -> Result<Vec<VersionFile>> {
+    fn get_all_version_files(&self) -> Result<Vec<VersionFile>> {
         self.type_
             .map(|type_| match type_ {
                 ProjectType::Rust => crate::project_types::rust::find_cargo_tomls(&self.repo),
