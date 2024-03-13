@@ -28,7 +28,7 @@ pub fn find_cargo_tomls(repo: &Repository) -> Result<Vec<VersionFile>> {
             let toml: toml_edit::Document = read_to_string(path)
                 .with_context(|| format!("Failed reading file {path:?} "))?
                 .parse()
-                .context("Failed parsing Cargo.toml file")?;
+                .with_context(|| format!("Failed parsing {path:?}"))?;
 
             if let Some(version) = toml["package"]["version"]
                 .as_str()
