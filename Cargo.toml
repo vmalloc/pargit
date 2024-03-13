@@ -26,5 +26,5 @@ serde = {version = "1.0.119", features = ["derive"]}
 strum = "0.20.0"
 strum_macros = "0.20.1"
 toml = "0.5.8"
-toml_edit = "0.2.0"
+toml_edit = "0.22.0"
 walkdir = "2.3.1"

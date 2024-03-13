@@ -25,13 +25,14 @@ pub fn find_cargo_tomls(repo: &Repository) -> Result<Vec<VersionFile>> {
                 continue;
             }
 
-            let toml: toml_edit::Document = read_to_string(path)
+            let toml: toml_edit::DocumentMut = read_to_string(path)
                 .with_context(|| format!("Failed reading file {path:?} "))?
                 .parse()
                 .with_context(|| format!("Failed parsing {path:?}"))?;
 
-            if let Some(version) = toml["package"]["version"]
-                .as_str()
+            if let Some(version) = toml
+                .get("package")
+                .and_then(|t| t.get("version")?.as_str())
                 .map(Version::parse)
                 .transpose()
                 .with_context(|| format!("Failed parsing version for {path:?}"))?
@@ -42,8 +43,9 @@ pub fn find_cargo_tomls(repo: &Repository) -> Result<Vec<VersionFile>> {
                     version,
                     is_workspace: false,
                 })
-            } else if let Some(version) = toml["workspace"]["package"]["version"]
-                .as_str()
+            } else if let Some(version) = toml
+                .get("workspace")
+                .and_then(|w| w.get("package")?.get("version")?.as_str())
                 .map(Version::parse)
                 .transpose()
                 .with_context(|| format!("Failed parsing workspace package version for {path:?}"))?
@@ -70,7 +72,7 @@ pub fn write_cargo_toml_version(
     new_version: &Version,
     is_workspace_file: bool,
 ) -> Result<()> {
-    let mut toml: toml_edit::Document = read_to_string(path)
+    let mut toml: toml_edit::DocumentMut = read_to_string(path)
         .with_context(|| format!("Failed reading file {path:?}"))?
         .parse()
         .context("Failed parsing Cargo.toml file")?;
