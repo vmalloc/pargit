@@ -18,15 +18,15 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub struct Project {
+pub struct Pargit {
     repo_path: PathBuf,
     project_path: PathBuf,
-    pub repo: Repository,
+    repo: Repository,
     type_: Option<ProjectType>,
     config: Config,
 }
 
-impl Project {
+impl Pargit {
     pub fn new(repo_path: &Path) -> Result<Self> {
         let config = Config::load(repo_path)?;
         let project_path = repo_path.join(
@@ -93,12 +93,18 @@ impl Project {
 
     pub fn bump_version(&self, bump_kind: BumpKind) -> Result<()> {
         debug!("Bumping version: {:?}", bump_kind);
-        let bumped_files = self
-            .get_version_file()?
-            .ok_or_else(|| format_err!("Unable to find version file"))?;
-        for bumped_file in bumped_files {
+
+        let files_to_bump = self.get_version_files_to_bump()?;
+
+        if files_to_bump.is_empty() {
+            bail!("Could not find version files to bump");
+        }
+
+        for bumped_file in files_to_bump {
+            debug!("Bumping version file {bumped_file:?}...");
             bumped_file.bump(VersionSpec::Bump(bump_kind))?;
         }
+
         info!("Compiling project to lock version");
         self.compile()
     }
@@ -352,34 +358,27 @@ impl Project {
         }
     }
 
-    fn resolve_release(&self, version: VersionSpec) -> Result<Release> {
-        let version_files = self.get_version_file()?;
-        Ok(match version {
-            VersionSpec::Exact(version) => {
-                Release::version(&self.config, version, version_files, None)
-            }
-            VersionSpec::Bump(kind) => {
-                if let Some(version_files) = version_files {
-                    Release::version(
-                        &self.config,
-                        next_version(&version_files[0].version(), kind),
-                        Some(version_files),
-                        None,
-                    )
-                } else if let Some((existing_version, prefix)) =
-                    self.try_get_latest_tagged_version()?
-                {
-                    Release::version(
-                        &self.config,
-                        next_version(&existing_version, kind),
-                        None,
-                        Some(prefix),
-                    )
+    fn resolve_release(&self, version_spec: VersionSpec) -> Result<Release> {
+        let version_files = self.get_version_files_to_bump()?;
+        let (new_version, prefix) = match version_spec {
+            VersionSpec::Exact(version) => (version, None),
+            VersionSpec::Bump(bump_kind) => {
+                let (current_version, prefix) = if version_files.is_empty() {
+                    self.try_get_latest_tagged_version()?.map(|(v, p)| (v, Some(p))).ok_or_else(|| anyhow::format_err!("Could not deduce current version and no existing versioned files found"))?
                 } else {
-                    bail!("Cannot find version file to bump. Cannot deduce version")
-                }
+                    (version_files[0].version(), None)
+                };
+
+                (next_version(&current_version, bump_kind), prefix)
             }
-        })
+        };
+
+        Ok(Release::version(
+            &self.config,
+            new_version,
+            Some(version_files),
+            prefix,
+        ))
     }
 
     fn try_get_latest_tagged_version(&self) -> Result<Option<(Version, String)>> {
@@ -403,9 +402,10 @@ impl Project {
         Ok(versions.into_iter().last())
     }
 
-    fn get_version_file(&self) -> Result<Option<Vec<VersionFile>>> {
-        let version_files = self.get_version_files()?;
+    fn get_version_files_to_bump(&self) -> Result<Vec<VersionFile>> {
+        let version_files = self.get_all_version_files()?;
 
+        // if we have a single version - we should bump them all
         if version_files
             .iter()
             .map(|f| f.version())
@@ -413,7 +413,7 @@ impl Project {
             .len()
             == 1
         {
-            return Ok(Some(version_files));
+            return Ok(version_files);
         }
 
         let index = if version_files.len() > 1 {
@@ -439,10 +439,10 @@ impl Project {
             0
         };
 
-        Ok(version_files.into_iter().nth(index).map(|file| vec![file]))
+        Ok(version_files.into_iter().nth(index).into_iter().collect())
     }
 
-    fn get_version_files(&self) -> Result<Vec<VersionFile>> {
+    fn get_all_version_files(&self) -> Result<Vec<VersionFile>> {
         self.type_
             .map(|type_| match type_ {
                 ProjectType::Rust => crate::project_types::rust::find_cargo_tomls(&self.repo),

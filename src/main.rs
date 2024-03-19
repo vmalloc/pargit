@@ -4,12 +4,12 @@ use anyhow::Result;
 use clap::Parser;
 use commands::{FlowCommand, ReleaseCommand, VersionCommand};
 use log::error;
-use project::Project;
+use pargit::Pargit;
 use utils::ObjectKind;
 
 mod commands;
 mod config;
-mod project;
+mod pargit;
 mod project_types;
 mod release;
 mod repo;
@@ -37,7 +37,7 @@ fn entry_point(opts: Opts) -> Result<()> {
 
     use commands::Command::*;
 
-    let mut project = Project::new(&opts.path)?;
+    let mut project = Pargit::new(&opts.path)?;
 
     match opts.command {
         Configure => project.configure(),
@@ -51,7 +51,7 @@ fn entry_point(opts: Opts) -> Result<()> {
 }
 
 fn process_release_command(
-    project: &Project,
+    project: &Pargit,
     cmd: ReleaseCommand,
     release_kind: ObjectKind,
 ) -> Result<()> {
@@ -70,7 +70,7 @@ fn process_release_command(
     }
 }
 
-fn process_flow_command(project: &Project, kind: ObjectKind, cmd: FlowCommand) -> Result<()> {
+fn process_flow_command(project: &Pargit, kind: ObjectKind, cmd: FlowCommand) -> Result<()> {
     match cmd {
         FlowCommand::Delete { name } => project.pargit_delete(kind, name),
         FlowCommand::Start { name, from_ref } => {

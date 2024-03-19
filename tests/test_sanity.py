@@ -4,7 +4,7 @@ import subprocess
 from enum import Enum
 
 
-def test_sanity(pargit):
+def test_feature_start(pargit):
     pargit.feature_start("blap")
     assert pargit.repo.current_branch() == "feature/blap"
 
@@ -99,3 +99,8 @@ def test_cleanup_sanity(pargit, develop_branch, main_branch):
         )
     pargit.cleanup()
     assert pargit.repo.branches() == {develop_branch, main_branch}
+
+
+@pytest.mark.skip()
+def test_version_bump_prefixed_when_no_versioned_files_exist(pargit):
+    raise NotImplementedError
