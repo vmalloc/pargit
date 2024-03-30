@@ -199,8 +199,10 @@ class Crate:
             else:
                 contents[key] = value
 
-    def cargo_check(self):
-        subprocess.check_call("cargo check --workspace", shell=True, cwd=self.path)
+    def cargo_check(self, **kw):
+        p = subprocess.run("cargo check --workspace", shell=True, cwd=self.path, **kw)
+        p.check_returncode()
+        return p
 
 
 class Repo:
@@ -328,6 +330,7 @@ members = [
 
         self.shell("git add .")
         self.shell("git commit -a -m 'Convert to Rust'")
+        return Crate(self.path)
 
     def into_empty_project(self):
         self.shell("git commit -a --allow-empty -m init")
