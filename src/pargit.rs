@@ -347,9 +347,15 @@ impl Pargit {
         if let Some(type_) = &self.type_ {
             match type_ {
                 ProjectType::Rust => {
+                    let compilation_command = self
+                        .config
+                        .project_config
+                        .compilation_command
+                        .as_deref()
+                        .unwrap_or("cargo check --workspace --tests");
                     // info!("Compiling project (cargo check)...");
                     self.project_path
-                        .shell("cargo check --workspace --tests")
+                        .shell(compilation_command)
                         .context("Failed building project")
                 }
             }

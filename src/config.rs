@@ -17,6 +17,15 @@ pub struct Config {
 
     #[serde(default = "default_develop_branch")]
     pub develop_branch_name: String,
+
+    #[serde(default)]
+    #[serde(rename = "project")]
+    pub project_config: ProjectConfig,
+}
+
+#[derive(Default, serde::Deserialize, serde::Serialize)]
+pub struct ProjectConfig {
+    pub compilation_command: Option<String>,
 }
 
 fn default_main_branch() -> String {
