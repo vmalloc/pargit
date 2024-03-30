@@ -25,6 +25,8 @@ pub struct Config {
 
 #[derive(Default, serde::Deserialize, serde::Serialize)]
 pub struct ProjectConfig {
+    pub subpath: Option<PathBuf>,
+
     pub compilation_command: Option<String>,
 }
 

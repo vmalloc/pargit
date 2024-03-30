@@ -29,12 +29,16 @@ pub struct Pargit {
 impl Pargit {
     pub fn new(repo_path: &Path) -> Result<Self> {
         let config = Config::load(repo_path)?;
+
         let project_path = repo_path.join(
-            config
-                .project_subpath
-                .clone()
-                .unwrap_or_else(|| PathBuf::from(".")),
-        );
+
+            if let Some(p) = &config.project_subpath {
+                log::warn!("project_subpath configuration parameter is deprecated. Use project.subpath instead")   ;
+                p.clone()
+            } else {
+                config.project_config.subpath.as_ref().cloned().unwrap_or_else(||PathBuf::from("."))
+            });
+
         let type_ = if project_path.join("Cargo.toml").exists() {
             Some(ProjectType::Rust)
         } else {
