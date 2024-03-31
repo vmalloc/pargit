@@ -1,4 +1,3 @@
-# pylint: disable=redefined-outer-name,missing-docstring
 import os
 from uuid import uuid4
 import subprocess
@@ -200,6 +199,7 @@ class Crate:
                 contents[key] = value
 
     def cargo_check(self, **kw):
+        # pylint: disable=subprocess-run-check
         p = subprocess.run("cargo check --workspace", shell=True, cwd=self.path, **kw)
         p.check_returncode()
         return p
