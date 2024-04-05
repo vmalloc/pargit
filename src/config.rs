@@ -89,3 +89,34 @@ impl Config {
         format!("{}{}", prefix, version)
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn test_example_config_valid() {
+        let lines = include_str!("commands.rs").lines();
+
+        let mut src = None;
+
+        for line in lines {
+            if let Some(line) = line.trim_start().strip_prefix("///") {
+                println!("{line:?}");
+                if line.trim_start().starts_with("# .pargit.toml") {
+                    assert!(src.is_none());
+                    src = Some(String::new())
+                } else if let Some(src) = src.as_mut() {
+                    src.push('\n');
+                    src.push_str(line);
+                }
+            } else if src.is_some() {
+                break;
+            } else {
+                continue;
+            }
+        }
+
+        let _cfg: super::Config =
+            toml::from_str(src.as_ref().expect("Comment not found")).expect("failed parsing");
+    }
+}

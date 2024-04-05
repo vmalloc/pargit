@@ -81,5 +81,6 @@ develop_branch_name = "develop" # optional
 
 For repositories in which the project being manipulated does not reside in the repository's root, you can set the project subpath configuration value:
 ```toml
-project_subpath = "./project"
+[project]
+subpath = "./project"
 ```

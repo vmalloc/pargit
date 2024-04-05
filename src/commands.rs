@@ -6,6 +6,29 @@ use strum_macros::EnumString;
 
 #[derive(Subcommand)]
 pub enum Command {
+    #[clap(verbatim_doc_comment)]
+    /// Pargit has several aspects of its behavior that can be controlled and customized through an optional repository file,
+    /// called .pargit.toml
+    ///
+    /// This command generates this file interactively.
+    ///
+    /// Below is a sample .pargit.toml file with its optional fields:
+    ///
+    /// # .pargit.toml
+    /// main_branch_name = "main"
+    /// develop_branch_name = "develop"
+    /// # if present, specifies a prefix to be used for tags created
+    /// # by pargit
+    /// tag_prefix = "v"
+    ///
+    /// [project]
+    /// # if present - points to the subdirectory in which
+    /// # the actual project resides
+    /// subdpath = "./subpath"
+    /// # if present, specifies the command to be executed
+    /// # when the project is to be compiled during version bump
+    /// # and release
+    /// compilation_command = "cargo check"
     Configure,
     #[clap(subcommand)]
     Hotfix(ReleaseCommand),
