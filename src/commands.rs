@@ -31,14 +31,19 @@ pub enum Command {
     /// compilation_command = "cargo check"
     Configure,
     #[clap(subcommand)]
+    /// Manipulate hotfix releases
     Hotfix(ReleaseCommand),
     #[clap(subcommand)]
+    /// Release a version in one shot (branch, tag, merge and push)
     Release(ReleaseCommand),
+    /// Manipulate feature branches
     #[clap(subcommand)]
     Feature(FlowCommand),
+    /// Manipulate bugfix branches
     #[clap(subcommand)]
     Bugfix(FlowCommand),
     #[clap(subcommand)]
+    /// Manipulates versions of the current repository
     Version(VersionCommand),
     Cleanup,
 }
@@ -51,6 +56,7 @@ pub struct ReleaseOptions {
 
 #[derive(Subcommand)]
 pub enum ReleaseCommand {
+    /// Starts a release. This creates a dedicated branch with the release name
     Start {
         spec: VersionSpec,
         #[clap(long = "from-ref")]

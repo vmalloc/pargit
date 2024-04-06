@@ -18,14 +18,18 @@ mod version_file;
 
 #[derive(Parser)]
 #[command(version)]
+/// Pargit is a tool for manipulating releases and branching schemes of git-managed projects
 struct Opts {
     #[clap(global = true, short = 'v', action=clap::ArgAction::Count)]
+    /// increases log verbosity (can be specified multiple times)
     verbosity: u8,
 
     #[clap(global = true, short = 'q', action=clap::ArgAction::Count)]
+    /// reduces log verbosity (can be specified multiple times)
     quietness: u8,
 
     #[clap(short = 'p', long = "path", default_value = ".")]
+    /// Path of the repository to operate on
     path: PathBuf,
 
     #[clap(subcommand)]

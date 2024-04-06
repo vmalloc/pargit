@@ -28,3 +28,6 @@ strum_macros = "0.20.1"
 toml = "0.5.8"
 toml_edit = "0.22.0"
 walkdir = "2.3.1"
+
+[dev-dependencies]
+itertools = "0.12.1"
