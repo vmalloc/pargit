@@ -33,7 +33,10 @@ pub enum Command {
     /// compilation_command = "cargo check"
     Configure,
     #[clap(subcommand)]
-    /// Creates and manipulates releases
+    /// Manipulate hotfix releases
+    Hotfix(ReleaseCommand),
+    #[clap(subcommand)]
+    /// Release a version in one shot (branch, tag, merge and push)
     Release(ReleaseCommand),
     /// Manipulate feature branches
     #[clap(subcommand)]

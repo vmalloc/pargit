@@ -46,6 +46,7 @@ fn entry_point(opts: Opts) -> Result<()> {
     match opts.command {
         Configure => project.configure(),
         Release(cmd) => process_release_command(&project, cmd, ObjectKind::Release),
+        Hotfix(cmd) => process_release_command(&project, cmd, ObjectKind::Hotfix),
         Feature(cmd) => process_flow_command(&project, ObjectKind::Feature, cmd),
         Bugfix(cmd) => process_flow_command(&project, ObjectKind::Bugfix, cmd),
         commands::Command::Version(VersionCommand::Bump { kind }) => project.bump_version(kind),
