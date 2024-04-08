@@ -201,7 +201,7 @@ impl Pargit {
                 .ignore_errors()
         });
         if self.repo.is_dirty()? {
-            self.repo.commit_all("Bump version")?;
+            self.repo.commit_all("pargit: Bump version")?;
         }
         self.release_finish(
             Some(release_name),
