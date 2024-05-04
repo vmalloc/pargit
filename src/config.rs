@@ -1,5 +1,4 @@
 use anyhow::Result;
-use dialoguer::{theme::ColorfulTheme, Input};
 use std::path::{Path, PathBuf};
 
 const CONFIG_FILENAME: &str = ".pargit.toml";
@@ -43,17 +42,6 @@ impl Default for Config {
     }
 }
 
-macro_rules! assign {
-    ($field:expr, $msg:expr) => {
-        let msg = $msg;
-        $field = Input::with_theme(&ColorfulTheme::default())
-            .with_prompt(msg)
-            .with_initial_text(&$field)
-            .default($field.clone())
-            .interact()?;
-    };
-}
-
 impl Config {
     pub fn load(project_root: &Path) -> Result<Self> {
         let path = project_root.join(CONFIG_FILENAME);
@@ -65,23 +53,8 @@ impl Config {
         }
     }
 
-    pub fn save(&self, project_root: &Path) -> Result<()> {
-        std::fs::write(project_root.join(CONFIG_FILENAME), toml::to_string(self)?)?;
-        Ok(())
-    }
-
-    pub fn reconfigure(&mut self) -> Result<()> {
-        assign!(self.tag_prefix, "Tag prefix to use");
-        assign!(
-            self.main_branch_name,
-            "Name of the branch to be used as master/main branch"
-        );
-        assign!(
-            self.develop_branch_name,
-            "Name of the branch to be used as development branch"
-        );
-
-        Ok(())
+    pub(crate) fn sample() -> &'static str {
+        include_str!("../sample-config.toml")
     }
 
     pub fn get_tag_name(&self, version: &str, prefix: Option<String>) -> String {
@@ -93,20 +66,18 @@ impl Config {
 #[cfg(test)]
 mod tests {
 
+    use super::Config;
     use itertools::Itertools;
 
     #[test]
-    fn test_example_config_valid() {
-        let lines = include_str!("commands.rs").lines();
+    fn test_skeleton_config_valid() {
+        let sample_config: &str = Config::sample();
 
-        let src = lines
-            .skip_while(|line| !line.trim_start().starts_with("/// # .pargit.toml"))
-            .take_while(|line| line.trim_start().starts_with("///"))
-            .filter_map(|line| line.trim().strip_prefix("///"))
+        let lines = sample_config
+            .lines()
+            .filter_map(|line| line.trim_start().strip_prefix("# "))
             .join("\n");
 
-        assert!(!src.trim().is_empty());
-
-        let _cfg: super::Config = toml::from_str(&src).expect("failed parsing");
+        let _config: Config = toml::from_str(&lines).unwrap();
     }
 }

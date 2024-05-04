@@ -87,12 +87,6 @@ impl Pargit {
         }
     }
 
-    pub fn configure(&mut self) -> Result<()> {
-        self.config.reconfigure()?;
-        self.config.save(&self.repo_path)?;
-        Ok(())
-    }
-
     // High-level API
 
     pub fn bump_version(&self, bump_kind: BumpKind) -> Result<()> {

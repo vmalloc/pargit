@@ -1,6 +1,6 @@
-use std::path::PathBuf;
+use std::{io::Write, path::PathBuf};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
 use commands::{FlowCommand, ReleaseCommand, VersionCommand};
 use log::error;
@@ -41,17 +41,32 @@ fn entry_point(opts: Opts) -> Result<()> {
 
     use commands::Command::*;
 
-    let mut project = Pargit::new(&opts.path)?;
+    if let Configure = opts.command {
+        process_configure_command()
+    } else {
+        let project = Pargit::new(&opts.path)?;
 
-    match opts.command {
-        Configure => project.configure(),
-        Release(cmd) => process_release_command(&project, cmd, ObjectKind::Release),
-        Hotfix(cmd) => process_release_command(&project, cmd, ObjectKind::Hotfix),
-        Feature(cmd) => process_flow_command(&project, ObjectKind::Feature, cmd),
-        Bugfix(cmd) => process_flow_command(&project, ObjectKind::Bugfix, cmd),
-        commands::Command::Version(VersionCommand::Bump { kind }) => project.bump_version(kind),
-        Cleanup => project.pargit_cleanup(),
+        match opts.command {
+            Configure => Ok(()),
+            Release(cmd) => process_release_command(&project, cmd, ObjectKind::Release),
+            Hotfix(cmd) => process_release_command(&project, cmd, ObjectKind::Hotfix),
+            Feature(cmd) => process_flow_command(&project, ObjectKind::Feature, cmd),
+            Bugfix(cmd) => process_flow_command(&project, ObjectKind::Bugfix, cmd),
+            commands::Command::Version(VersionCommand::Bump { kind }) => project.bump_version(kind),
+            Cleanup => project.pargit_cleanup(),
+        }
     }
+}
+
+fn process_configure_command() -> Result<()> {
+    let filename = ".pargit.toml";
+    std::fs::File::create_new(filename)
+        .context("Failed creating config file")?
+        .write_all(crate::config::Config::sample().as_bytes())
+        .context("Failed writing configuration")?;
+
+    log::info!("Successfully wrote {filename}");
+    Ok(())
 }
 
 fn process_release_command(

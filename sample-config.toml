@@ -1,0 +1,20 @@
+#################################
+## Sample .pargit.toml file
+#################################
+
+## An optional prefix for tags Pargit will be creating
+# tag_prefix = ""
+
+## Name of the develop branch
+# develop_branch_name = "develop"
+
+## Name of the main branch
+# main_branch_name = "master"
+
+# [project]
+## Points to the location in this repo where the actual project resides. Useful for cases where the repository contains multiple projects in different languages
+# subpath = "./"      
+
+## When specified, controls the command Pargit will run in order to compile the project to potentially lock new dependencies
+## and manifests
+# compilation_command = "cargo check"
