@@ -175,6 +175,7 @@ impl Pargit {
         let b = self.repo.create_branch(
             self.prefix(kind, name),
             Some(kind.get_start_point(self, from_ref)?),
+            false,
         )?;
 
         self.repo.switch_to_branch(&b)
@@ -247,10 +248,10 @@ impl Pargit {
         self.repo.switch_to_branch_name(&release_branch_name)?;
         self.check_pre_release(&options)?;
 
-        let temp_branch_name = format!("in-progress-{}-{}", release_kind, release_name);
+        let temp_branch_name = format!("pargit-in-progress-{}-{}", release_kind, release_name);
 
         self.repo
-            .create_branch(&temp_branch_name, Some(&self.config.main_branch_name))?;
+            .create_branch(&temp_branch_name, Some(&self.config.main_branch_name), true)?;
         info!("Switching to temporary branch");
         self.repo.switch_to_branch_name(&temp_branch_name)?;
         info!("Merging {} branch", release_kind);

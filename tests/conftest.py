@@ -276,7 +276,7 @@ class Repo:
             f.write(filename)
         self.shell("git add .")
         self.shell(f"git commit -a -m {filename}")
-        return Change(filename)
+        return Change(self, filename)
 
     def commit_all_changes(self):
         self.shell("git add .")
@@ -416,5 +416,9 @@ version = "0.1.0"
 
 
 class Change:
-    def __init__(self, filename):
+    def __init__(self, repo: Repo, filename: str):
+        self.repo = repo
         self.filename = filename
+
+    def exists(self):
+        return (self.repo.path / self.filename).exists()
