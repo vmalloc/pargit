@@ -190,7 +190,7 @@ impl Pargit {
         let release = self.release_start(VersionSpec::Bump(bump_kind), release_kind, None)?;
         let release_name = release.name.clone();
         let release_name_clone = release.name.clone();
-        history.remember(&format!("Delete {} branch", release_kind), move || {
+        history.remember(format!("Delete {} branch", release_kind), move || {
             self.pargit_delete(release_kind, Some(release_name_clone))
                 .ignore_errors()
         });
