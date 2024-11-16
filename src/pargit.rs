@@ -175,6 +175,7 @@ impl Pargit {
         let b = self.repo.create_branch(
             self.prefix(kind, name),
             Some(kind.get_start_point(self, from_ref)?),
+            false,
         )?;
 
         self.repo.switch_to_branch(&b)
@@ -190,7 +191,7 @@ impl Pargit {
         let release = self.release_start(VersionSpec::Bump(bump_kind), release_kind, None)?;
         let release_name = release.name.clone();
         let release_name_clone = release.name.clone();
-        history.remember(&format!("Delete {} branch", release_kind), move || {
+        history.remember(format!("Delete {} branch", release_kind), move || {
             self.pargit_delete(release_kind, Some(release_name_clone))
                 .ignore_errors()
         });
@@ -247,10 +248,10 @@ impl Pargit {
         self.repo.switch_to_branch_name(&release_branch_name)?;
         self.check_pre_release(&options)?;
 
-        let temp_branch_name = format!("in-progress-{}-{}", release_kind, release_name);
+        let temp_branch_name = format!("pargit-in-progress-{}-{}", release_kind, release_name);
 
         self.repo
-            .create_branch(&temp_branch_name, Some(&self.config.main_branch_name))?;
+            .create_branch(&temp_branch_name, Some(&self.config.main_branch_name), true)?;
         info!("Switching to temporary branch");
         self.repo.switch_to_branch_name(&temp_branch_name)?;
         info!("Merging {} branch", release_kind);
