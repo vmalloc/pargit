@@ -82,9 +82,12 @@ pub struct ExitStack<'a> {
     history: Vec<ExitStackItem<'a>>,
 }
 
-impl<'a> Drop for ExitStack<'a> {
+impl Drop for ExitStack<'_> {
     fn drop(&mut self) {
         debug!("Rolling back undo history...");
+        if self.history.is_empty() {
+            debug!("Nothing to roll back");
+        }
         for item in self.history.drain(..).rev() {
             let callback = item.callback;
             debug!("{}...", item.msg);

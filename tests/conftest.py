@@ -209,6 +209,9 @@ class Repo:
     def __init__(self, path):
         self.path = pathlib.Path(path)
 
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__}: path={self.path}>"
+
     def init(self, *, branch=None, bare=False):
         cmd = "git init"
         if branch is not None:
@@ -343,6 +346,9 @@ class Pargit:
         self.repo = repo
         self.env = os.environ.copy()
         self.env["PARGIT_DISABLE_COLORS"] = "1"
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__}: bin={self.binary} repo={self.repo}>"
 
     def pargit(self, *args, **kwargs):
         print("Running", args, kwargs)
