@@ -404,7 +404,7 @@ impl Pargit {
 
         versions.sort_by_key(|(version, _)| version.clone());
 
-        Ok(versions.into_iter().last())
+        Ok(versions.into_iter().next_back())
     }
 
     fn get_version_files_to_bump(&self) -> Result<Vec<VersionFile>> {
