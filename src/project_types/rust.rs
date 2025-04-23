@@ -1,18 +1,18 @@
 use anyhow::{Context, Result};
 use log::debug;
 use semver::Version;
-use std::{fs::read_to_string, io::Write, path::Path};
+use std::{collections::HashSet, fs::read_to_string, io::Write, path::Path};
 use toml_edit::value;
 
 use crate::{repo::Repository, version_file::VersionFile};
 
 pub fn find_cargo_tomls(repo: &Repository) -> Result<Vec<VersionFile>> {
-    let mut ignore_dirs: Vec<_> = repo
+    let mut ignore_dirs: HashSet<_> = repo
         .submodule_paths()?
         .into_iter()
         .map(|path_buf| path_buf.to_string_lossy().to_string())
         .collect();
-    ignore_dirs.push("target".into());
+    ignore_dirs.insert("target".into());
 
     let mut returned = Vec::new();
     for entry in walkdir::WalkDir::new(repo.path())
@@ -24,8 +24,8 @@ pub fn find_cargo_tomls(repo: &Repository) -> Result<Vec<VersionFile>> {
                     .path()
                     .file_name()
                     .map(|s| {
-                        let entry_file_name = s.to_string_lossy().to_string();
-                        ignore_dirs.contains(&entry_file_name)
+                        let entry_file_name = s.to_string_lossy();
+                        ignore_dirs.contains(entry_file_name.as_ref())
                     })
                     .unwrap_or(false))
         })

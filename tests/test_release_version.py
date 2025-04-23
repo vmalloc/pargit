@@ -1,4 +1,3 @@
-
 def test_in_progress_release_exists(pargit, capfd):
     tags = pargit.repo.tags()
     pargit.release_start("0.1.0")
