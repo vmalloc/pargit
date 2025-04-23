@@ -78,6 +78,16 @@ impl Repository {
             .collect())
     }
 
+    pub fn submodule_paths(&self) -> Result<Vec<PathBuf>> {
+        Ok(self
+            .repo
+            .submodules()
+            .context("Failed getting submodules")?
+            .into_iter()
+            .map(|submodule| submodule.path().to_path_buf())
+            .collect())
+    }
+
     fn is_merged(&self, commit: Oid, branch: Oid) -> Result<bool> {
         Ok(self.repo.merge_base(commit, branch)? == commit)
     }
