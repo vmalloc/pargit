@@ -229,7 +229,8 @@ impl Pargit {
                 file.bump(VersionSpec::Exact(release.version.clone()))?;
             }
             info!("Compiling project to lock new version");
-            self.compile()?;
+            self.compile()
+                .inspect_err(|err| debug!("Compilation failed on: {err}"))?;
         }
         undo.forget();
         Ok(release)
@@ -246,7 +247,8 @@ impl Pargit {
         let release_branch_name = self.prefix(release_kind, &release_name);
         info!("Finishing {} {}", release_kind, release_name);
         self.repo.switch_to_branch_name(&release_branch_name)?;
-        self.check_pre_release(&options)?;
+        self.check_pre_release(&options)
+            .inspect_err(|err| debug!("Pre release checks failed: {err}"))?;
 
         let temp_branch_name = format!("pargit-in-progress-{}-{}", release_kind, release_name);
 
