@@ -193,7 +193,7 @@ impl Repository {
         branch_name: impl AsRef<str>,
         start_point: Option<impl AsRef<str>>,
         force: bool,
-    ) -> Result<Branch> {
+    ) -> Result<Branch<'_>> {
         let start_point = match start_point {
             Some(start_point) => self
                 .repo
@@ -208,7 +208,7 @@ impl Repository {
             .branch(branch_name.as_ref(), &start_point, force)?)
     }
 
-    pub fn find_branch(&self, name: impl AsRef<str>) -> Result<Branch> {
+    pub fn find_branch(&self, name: impl AsRef<str>) -> Result<Branch<'_>> {
         Ok(self.repo.find_branch(name.as_ref(), BranchType::Local)?)
     }
 }
