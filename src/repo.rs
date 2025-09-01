@@ -99,13 +99,17 @@ impl Repository {
         self.is_merged(remote, branch.get().peel_to_commit()?.id())
     }
 
+    pub fn pull_current_branch(&self, ff_only: bool) -> Result<()> {
+        let flags = if ff_only { "--ff-only" } else { "" };
+        self.path().shell(format!("git pull {flags}"))
+    }
+
     pub fn pull_branch_from_remote(&self, branch_name: &str, ff_only: bool) -> Result<()> {
         let prev_branch = self.current_branch_name()?;
         let prev_branch = self.find_branch(&prev_branch)?;
         let branch = self.find_branch(branch_name)?;
         self.switch_to_branch(&branch)?;
-        let flags = if ff_only { "--ff-only" } else { "" };
-        self.path().shell(format!("git pull {flags}"))?;
+        self.pull_current_branch(ff_only)?;
         self.switch_to_branch(&prev_branch)?;
         Ok(())
     }
@@ -145,6 +149,8 @@ impl Repository {
                     }
                 }
             }
+            info!("Pulling develop branch from remote (ff-only)...");
+            self.pull_current_branch(true)?;
         } else {
             info!("Remote develop branch is not ahead of current branch. Not doing anything");
         }

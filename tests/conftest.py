@@ -347,6 +347,10 @@ class Pargit:
         self.env = os.environ.copy()
         self.env["PARGIT_DISABLE_COLORS"] = "1"
 
+    @classmethod
+    def on_path(cls, binary, path):
+        return cls(binary, Repo(path))
+
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}: bin={self.binary} repo={self.repo}>"
 
@@ -425,6 +429,9 @@ class Change:
     def __init__(self, repo: Repo, filename: str):
         self.repo = repo
         self.filename = filename
+
+    def on(self, other_repo: Repo):
+        return Change(other_repo, self.filename)
 
     def exists(self):
         return (self.repo.path / self.filename).exists()
