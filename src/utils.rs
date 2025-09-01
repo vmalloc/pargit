@@ -108,7 +108,7 @@ impl<'a> ExitStack<'a> {
     }
 }
 
-#[derive(Clone, Copy, EnumIter)]
+#[derive(Clone, Copy, EnumIter, PartialEq)]
 pub enum ObjectKind {
     Release,
     Hotfix,

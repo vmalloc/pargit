@@ -172,11 +172,17 @@ impl Pargit {
         if self.repo.find_branch(branch_name).is_ok() {
             bail!("{} {} already in progress. Finish it first", kind, name);
         }
-        let b = self.repo.create_branch(
-            self.prefix(kind, name),
-            Some(kind.get_start_point(self, from_ref)?),
-            false,
-        )?;
+
+        let start_point = kind.get_start_point(self, from_ref)?;
+
+        if kind == ObjectKind::Hotfix && from_ref.is_none() {
+            info!("Pulling {} branch before creating hotfix", start_point);
+            self.repo.pull_branch_from_remote(start_point, true)?;
+        }
+
+        let b = self
+            .repo
+            .create_branch(self.prefix(kind, name), Some(start_point), false)?;
 
         self.repo.switch_to_branch(&b)
     }

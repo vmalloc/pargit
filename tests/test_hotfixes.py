@@ -38,3 +38,28 @@ def test_hotfix(pargit, main_branch, develop_branch, from_ref):
     assert pargit.repo.current_branch() == develop_branch
     assert develop_change in pargit.repo
     assert from_branch_change in pargit.repo
+
+
+def test_hotfix_start_master_behind(pargit, main_branch, develop_branch):
+    pargit.repo.into_rust_project()
+
+    pargit.release_version_minor()
+
+    latest_version = pargit.repo.get_cargo_toml_version()
+
+    print("Version is", latest_version)
+    pargit.release_version_minor()
+    change = pargit.repo.commit_change()
+    pargit.release_version_minor()
+
+    pargit.repo.switch_to_branch(main_branch)
+    pargit.repo.shell(f"git reset --hard {latest_version}")
+
+    pargit.repo.switch_to_branch(develop_branch)
+
+    pargit.hotfix_start("minor")
+
+    expected_version = f"0.{int(latest_version.split('.')[1]) + 3}.0"
+
+    assert pargit.repo.current_branch() == f"hotfix/{expected_version}"
+    assert change.exists()
