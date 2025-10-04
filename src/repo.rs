@@ -1,3 +1,4 @@
+use crate::utils::delete_branch_with_retry;
 use crate::utils::ObjectKind;
 use crate::utils::PathExt;
 
@@ -57,7 +58,8 @@ impl Repository {
     }
 
     pub fn delete_branch_name(&self, branch_name: &str) -> Result<()> {
-        Ok(self.find_branch(branch_name)?.delete()?)
+        let mut branch = self.find_branch(branch_name)?;
+        delete_branch_with_retry(&mut branch)
     }
 
     pub fn delete_tag(&self, tag_name: &str) -> Result<()> {
@@ -139,13 +141,12 @@ impl Repository {
                         info!("Branch {} is not merged into local develop, but is merged to remote develop. Deleting...", name);
                         if current_branch_name == name {
                             info!(
-                                "Branch {} is the current branch, switching to {}...",
-                                current_branch_name,
+                                "Branch {current_branch_name} is the current branch, switching to {}...",
                                 develop_branch.name()?.unwrap()
                             );
                             self.switch_to_branch(&develop_branch)?;
                         }
-                        branch.delete()?;
+                        delete_branch_with_retry(&mut branch)?;
                     }
                 }
             }
