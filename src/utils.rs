@@ -2,11 +2,13 @@ use crate::{commands::BumpKind, pargit::Pargit};
 
 use anyhow::{bail, Result};
 use dialoguer::theme::{ColorfulTheme, SimpleTheme, Theme};
-use log::debug;
+use git2::{Branch, ErrorClass};
+use log::{debug, warn};
 use semver::Version;
 use std::{
     path::Path,
     process::{Output, Stdio},
+    time::Duration,
 };
 use strum_macros::EnumIter;
 
@@ -70,6 +72,34 @@ pub fn get_color_theme() -> Box<dyn Theme> {
 
 pub fn can_ask_questions() -> bool {
     std::env::var("PARGIT_NON_INTERACTIVE").as_deref() != Ok("1")
+}
+
+const MAX_DELETE_RETRIES: usize = 3;
+const RETRY_SLEEP_DURATION: Duration = Duration::from_millis(100);
+
+fn should_retry_delete_error(error: &git2::Error) -> bool {
+    matches!(error.class(), ErrorClass::Config)
+}
+
+pub fn delete_branch_with_retry(branch: &mut Branch) -> Result<()> {
+    let mut attempts = 0;
+
+    while let Err(e) = branch.delete() {
+        attempts += 1;
+        if attempts >= MAX_DELETE_RETRIES {
+            return Err(e.into());
+        }
+
+        if should_retry_delete_error(&e) {
+            warn!(
+                        "Branch deletion failed (attempt {attempts}/{MAX_DELETE_RETRIES}): {e}. Retrying...",
+                    );
+            std::thread::sleep(RETRY_SLEEP_DURATION);
+            continue;
+        }
+        return Err(e.into());
+    }
+    Ok(())
 }
 
 struct ExitStackItem<'a> {
