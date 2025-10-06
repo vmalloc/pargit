@@ -153,7 +153,7 @@ impl Repository {
             info!("Pulling develop branch from remote (ff-only)...");
             self.pull_current_branch(true)?;
         } else {
-            info!("Remote develop branch is not ahead of current branch. Not doing anything");
+            info!("Remote develop branch is not ahead of local develop branch. Not doing anything");
         }
         Ok(())
     }
