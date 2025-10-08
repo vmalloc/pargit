@@ -114,15 +114,28 @@ impl Pargit {
     pub fn pargit_delete(&self, kind: ObjectKind, name: Option<String>) -> Result<()> {
         let release_name = self.resolve_name(kind, name)?;
         let branch_name = self.prefix(kind, &release_name);
-        info!("Deleting {}...", branch_name);
+        info!("Deleting {branch_name}...");
 
         let mut branch = self.repo.find_branch(&branch_name)?;
         if let Ok(upstream) = branch.upstream() {
             let (origin_name, remote_branch_name) =
                 upstream.name()?.unwrap().split_once('/').unwrap();
-            info!("Deleting remote branch {}", remote_branch_name);
-            self.repo_path
-                .shell(format!("git push {} :{}", origin_name, remote_branch_name))?;
+            info!("Deleting remote branch {remote_branch_name}");
+            let res = self
+                .repo_path
+                .shell(format!("git push {} :{}", origin_name, remote_branch_name))
+                .or_else(|e| {
+
+                    if format!("{e:?}").contains("remote ref does not exist") {
+                        log::warn!("Remote branch {remote_branch_name} does not exist, skipping remote deletion");
+                        Ok(())
+                    } else {
+                        Err(e)
+                    }
+                });
+            if let Err(e) = res {
+                bail!("Failed deleting remote branch {}: {e}", remote_branch_name);
+            }
         }
 
         if branch.name()?.unwrap() == self.repo.current_branch_name()? {
