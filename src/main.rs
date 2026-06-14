@@ -83,8 +83,8 @@ fn process_release_command(
         Publish { name } => project.pargit_publish(release_kind, name),
         ReleaseCommand::Delete { name } => project.pargit_delete(release_kind, name),
         Finish { name, options } => project.release_finish(name, None, release_kind, options),
-        ReleaseCommand::Version { kind, options } => {
-            project.release_version(kind, release_kind, options)
+        ReleaseCommand::Version { spec, options } => {
+            project.release_version(spec, release_kind, options)
         }
     }
 }
