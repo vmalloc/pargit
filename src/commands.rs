@@ -69,7 +69,7 @@ pub enum ReleaseCommand {
         options: ReleaseOptions,
 
         /// Kind of release to perform (major, minor or patch)
-        kind: BumpKind,
+        spec: VersionSpec,
     },
 }
 

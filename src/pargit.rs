@@ -202,12 +202,12 @@ impl Pargit {
 
     pub fn release_version(
         &self,
-        bump_kind: BumpKind,
+        spec: VersionSpec,
         release_kind: ObjectKind,
         options: ReleaseOptions,
     ) -> Result<()> {
         let mut history = ExitStack::default();
-        let release = self.release_start(VersionSpec::Bump(bump_kind), release_kind, None)?;
+        let release = self.release_start(spec, release_kind, None)?;
         let release_name = release.name.clone();
         let release_name_clone = release.name.clone();
         history.remember(format!("Delete {} branch", release_kind), move || {
