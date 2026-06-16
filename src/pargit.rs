@@ -206,6 +206,15 @@ impl Pargit {
         release_kind: ObjectKind,
         options: ReleaseOptions,
     ) -> Result<()> {
+        let start_point = release_kind.get_start_point(self, None)?;
+        if !self.repo.is_branch_up_to_date(start_point)? {
+            if options.no_pull {
+                bail!("Local {0} branch is behind remote {0} branch. Update your local {0} branch before creating a release.", start_point);
+            }
+            info!("Pulling {start_point} branch before creating {release_kind}");
+            self.repo.pull_branch_from_remote(start_point, true)?;
+        }
+
         let mut history = ExitStack::default();
         let release = self.release_start(spec, release_kind, None)?;
         let release_name = release.name.clone();
