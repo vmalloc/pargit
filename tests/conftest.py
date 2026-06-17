@@ -96,6 +96,20 @@ def submodule(local_repo, submodule_branch_config, submodule_upstream):
 
 
 @pytest.fixture
+def nested_submodule(local_repo, submodule_branch_config, submodule_upstream):
+    local_repo.shell(
+        f"git -c protocol.file.allow=always submodule add {submodule_upstream.path} deps/submodule"
+    )
+    returned = Repo(local_repo.path / "deps" / "submodule")
+    returned.create_branch(
+        submodule_branch_config.develop_branch_name,
+        f"origin/{submodule_branch_config.develop_branch_name}",
+    )
+    returned.configure_git()
+    return returned
+
+
+@pytest.fixture
 def local_repo(tmpdir, remote_repo, branch_config):
     path = tmpdir / "local"
 

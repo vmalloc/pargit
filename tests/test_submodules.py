@@ -34,3 +34,14 @@ def test_release_rust_proj_with_submodule_with_same_version(pargit, submodule_pa
     pargit.repo.commit_change()
     pargit.release_version_minor()
     assert pargit.repo.get_cargo_toml_version() == "0.2.0"
+
+
+def test_release_rust_proj_with_nested_submodule(pargit, nested_submodule):
+    nested_submodule.into_rust_project()
+    nested_submodule.tag("0.1.0")
+    pargit.repo.commit_all_changes()
+    pargit.repo.into_rust_project()
+    pargit.repo.tag("0.1.0")
+    pargit.repo.commit_change()
+    pargit.release_version_minor()
+    assert pargit.repo.get_cargo_toml_version() == "0.2.0"

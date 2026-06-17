@@ -7,27 +7,34 @@ use toml_edit::value;
 use crate::{repo::Repository, version_file::VersionFile};
 
 pub fn find_cargo_tomls(repo: &Repository) -> Result<Vec<VersionFile>> {
-    let mut ignore_dirs: HashSet<_> = repo
+    let submodule_paths: HashSet<_> = repo
         .submodule_paths()?
         .into_iter()
         .map(|path_buf| path_buf.to_string_lossy().to_string())
         .collect();
-    ignore_dirs.insert("target".into());
+
+    let repo_path = repo.path().to_path_buf();
 
     let mut returned = Vec::new();
     for entry in walkdir::WalkDir::new(repo.path())
         .contents_first(false)
         .into_iter()
         .filter_entry(|entry| {
-            !(entry.path().is_dir()
-                && entry
-                    .path()
-                    .file_name()
-                    .map(|s| {
-                        let entry_file_name = s.to_string_lossy();
-                        ignore_dirs.contains(entry_file_name.as_ref())
-                    })
-                    .unwrap_or(false))
+            if !entry.path().is_dir() {
+                return true;
+            }
+            let rel_path = entry
+                .path()
+                .strip_prefix(&repo_path)
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default();
+            if submodule_paths.contains(&rel_path) {
+                return false;
+            }
+            if entry.path().file_name().map(|s| s == "target").unwrap_or(false) {
+                return false;
+            }
+            true
         })
     {
         let entry = entry?;
