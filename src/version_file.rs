@@ -10,6 +10,10 @@ pub enum VersionFile {
         version: Version,
         is_workspace: bool,
     },
+    PackageJson {
+        path: PathBuf,
+        version: Version,
+    },
 }
 
 impl std::fmt::Debug for VersionFile {
@@ -18,7 +22,9 @@ impl std::fmt::Debug for VersionFile {
             .field(
                 "path",
                 match self {
-                    VersionFile::CargoToml { path, .. } => path,
+                    VersionFile::CargoToml { path, .. } | VersionFile::PackageJson { path, .. } => {
+                        path
+                    }
                 },
             )
             .finish()
@@ -41,24 +47,36 @@ impl VersionFile {
                 };
                 crate::project_types::rust::write_cargo_toml_version(path, &version, *is_workspace)
             }
+            VersionFile::PackageJson { path, version } => {
+                debug!("Bumping package.json file {:?}", path);
+
+                let version = match spec {
+                    VersionSpec::Exact(version) => version,
+                    VersionSpec::Bump(kind) => next_version(version, kind),
+                };
+                crate::project_types::javascript::write_package_json_version(path, &version)
+            }
         }
     }
 
     pub fn version(&self) -> Version {
         match self {
-            VersionFile::CargoToml { version, .. } => version.clone(),
+            VersionFile::CargoToml { version, .. } | VersionFile::PackageJson { version, .. } => {
+                version.clone()
+            }
         }
     }
 
     pub fn path(&self) -> &Path {
         match self {
-            VersionFile::CargoToml { path, .. } => path,
+            VersionFile::CargoToml { path, .. } | VersionFile::PackageJson { path, .. } => path,
         }
     }
 
     pub fn typename(&self) -> &'static str {
         match self {
             VersionFile::CargoToml { .. } => "Cargo.toml",
+            VersionFile::PackageJson { .. } => "package.json",
         }
     }
 }

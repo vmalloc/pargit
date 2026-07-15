@@ -1,3 +1,4 @@
+import json
 import os
 from uuid import uuid4
 import subprocess
@@ -349,6 +350,12 @@ members = [
         self.shell("git commit -a -m 'Convert to Rust'")
         return Crate(self.path)
 
+    def into_javascript_project(self, version="0.1.0"):
+        print("Making", self.path, "into a JavaScript project...")
+        make_javascript_project(self.path, version=version)
+        self.shell("git add .")
+        self.shell("git commit -a -m 'Convert to JavaScript'")
+
     def into_empty_project(self):
         self.shell("git commit -a --allow-empty -m init")
 
@@ -437,6 +444,21 @@ name = "{name}"
 version = "0.1.0"
 """
         )
+
+
+def make_javascript_project(path, name="proj", version="0.1.0"):
+    package_json = {
+        "name": name,
+        "version": version,
+        "description": "Test project",
+        "main": "index.js",
+    }
+    with (path / "package.json").open("w") as f:
+        json.dump(package_json, f, indent=2)
+        f.write("\n")
+
+    with (path / "index.js").open("w") as f:
+        f.write("// main\n")
 
 
 class Change:

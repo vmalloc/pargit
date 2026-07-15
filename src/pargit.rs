@@ -41,6 +41,8 @@ impl Pargit {
 
         let type_ = if project_path.join("Cargo.toml").exists() {
             Some(ProjectType::Rust)
+        } else if project_path.join("package.json").exists() {
+            Some(ProjectType::JavaScript)
         } else {
             None
         };
@@ -374,20 +376,19 @@ impl Pargit {
 
     fn compile(&self) -> Result<()> {
         if let Some(type_) = &self.type_ {
-            match type_ {
-                ProjectType::Rust => {
-                    let compilation_command = self
-                        .config
-                        .project_config
-                        .compilation_command
-                        .as_deref()
-                        .unwrap_or("cargo check --workspace --tests");
-                    // info!("Compiling project (cargo check)...");
-                    self.project_path
-                        .shell(compilation_command)
-                        .context("Failed building project")
-                }
-            }
+            let default_command = match type_ {
+                ProjectType::Rust => "cargo check --workspace --tests",
+                ProjectType::JavaScript => "npm install",
+            };
+            let compilation_command = self
+                .config
+                .project_config
+                .compilation_command
+                .as_deref()
+                .unwrap_or(default_command);
+            self.project_path
+                .shell(compilation_command)
+                .context("Failed building project")
         } else {
             Ok(())
         }
@@ -481,6 +482,9 @@ impl Pargit {
         self.type_
             .map(|type_| match type_ {
                 ProjectType::Rust => crate::project_types::rust::find_cargo_tomls(&self.repo),
+                ProjectType::JavaScript => {
+                    crate::project_types::javascript::find_package_json(&self.project_path)
+                }
             })
             .unwrap_or_else(|| Ok(Vec::new()))
     }
@@ -521,4 +525,5 @@ impl Pargit {
 #[derive(Clone, Copy, Debug)]
 enum ProjectType {
     Rust,
+    JavaScript,
 }
