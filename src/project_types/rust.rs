@@ -31,7 +31,12 @@ pub fn find_cargo_tomls(repo: &Repository) -> Result<Vec<VersionFile>> {
             if submodule_paths.contains(&rel_path) {
                 return false;
             }
-            if entry.path().file_name().map(|s| s == "target").unwrap_or(false) {
+            if entry
+                .path()
+                .file_name()
+                .map(|s| s == "target")
+                .unwrap_or(false)
+            {
                 return false;
             }
             true
