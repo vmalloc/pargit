@@ -43,3 +43,26 @@ def test_cleanup_with_remote_changes(
     # Cleanup original repo
     pargit.cleanup()
     assert change.exists()
+
+
+def test_cleanup_from_branch_with_deleted_upstream(
+    pargit, develop_branch, remote_repo, tmpdir
+):
+    feature_branch = "feature/deleted-upstream"
+    pargit.repo.create_branch(feature_branch)
+    pargit.repo.switch_to_branch(feature_branch)
+    pargit.repo.commit_change()
+    pargit.repo.shell(f"git push origin -u {feature_branch}")
+
+    another_clone = remote_repo.clone_to(tmpdir / "another_clone")
+    another_clone.switch_to_branch(develop_branch)
+    another_clone.commit_change()
+    another_clone.shell(f"git push origin {develop_branch}")
+    another_clone.shell(f"git push origin --delete {feature_branch}")
+
+    pargit.cleanup()
+
+    assert pargit.repo.current_branch() == feature_branch
+    assert pargit.repo.get_branch_sha(develop_branch) == another_clone.get_branch_sha(
+        develop_branch
+    )

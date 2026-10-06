@@ -21,12 +21,21 @@ pub fn find_package_json(project_path: &Path) -> Result<Vec<VersionFile>> {
     let version_str = parsed
         .get("version")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| anyhow::format_err!("No \"version\" field found in {:?}", package_json_path))?;
+        .ok_or_else(|| {
+            anyhow::format_err!("No \"version\" field found in {:?}", package_json_path)
+        })?;
 
-    let version = Version::parse(version_str)
-        .with_context(|| format!("Failed parsing version {:?} in {:?}", version_str, package_json_path))?;
+    let version = Version::parse(version_str).with_context(|| {
+        format!(
+            "Failed parsing version {:?} in {:?}",
+            version_str, package_json_path
+        )
+    })?;
 
-    debug!("Found package.json: {:?} (version={version})", package_json_path);
+    debug!(
+        "Found package.json: {:?} (version={version})",
+        package_json_path
+    );
 
     Ok(vec![VersionFile::PackageJson {
         path: package_json_path,
@@ -35,16 +44,15 @@ pub fn find_package_json(project_path: &Path) -> Result<Vec<VersionFile>> {
 }
 
 pub fn write_package_json_version(path: &Path, new_version: &Version) -> Result<()> {
-    let contents = read_to_string(path)
-        .with_context(|| format!("Failed reading {:?}", path))?;
+    let contents = read_to_string(path).with_context(|| format!("Failed reading {:?}", path))?;
 
-    let mut parsed: serde_json::Value = serde_json::from_str(&contents)
-        .with_context(|| format!("Failed parsing {:?}", path))?;
+    let mut parsed: serde_json::Value =
+        serde_json::from_str(&contents).with_context(|| format!("Failed parsing {:?}", path))?;
 
     parsed["version"] = serde_json::Value::String(new_version.to_string());
 
-    let new_contents = serde_json::to_string_pretty(&parsed)
-        .context("Failed serializing package.json")?;
+    let new_contents =
+        serde_json::to_string_pretty(&parsed).context("Failed serializing package.json")?;
 
     std::fs::OpenOptions::new()
         .write(true)

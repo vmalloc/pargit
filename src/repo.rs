@@ -151,7 +151,12 @@ impl Repository {
                 }
             }
             info!("Pulling develop branch from remote (ff-only)...");
-            self.pull_current_branch(true)?;
+            if self.current_branch_name()? == develop_branch_name {
+                self.pull_current_branch(true)?;
+            } else {
+                self.path()
+                    .shell(format!("git fetch origin {0}:{0}", develop_branch_name))?;
+            }
         } else {
             info!("Remote develop branch is not ahead of local develop branch. Not doing anything");
         }
