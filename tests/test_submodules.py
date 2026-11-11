@@ -2,13 +2,13 @@ def test_submodule(submodule_pargit, submodule_branch_config):
     submodule_pargit.feature_start("blap")
 
 
-def test_submodule_with_create_master_branch(submodule_pargit, submodule_branch_config):
-    submodule_pargit.repo.delete_branch(submodule_branch_config.main_branch_name)
-    p = submodule_pargit.feature_start.spawn("blap")
-    p.expect("Create it?", timeout=3)
-    p.write("y")
-    p.read()
-    assert p.wait() == 0
+def test_submodule_hotfix_start_creates_missing_main_branch(
+    submodule_pargit, submodule_branch_config
+):
+    main_branch = submodule_branch_config.main_branch_name
+    submodule_pargit.repo.delete_branch(main_branch)
+    submodule_pargit.hotfix_start("0.1.1")
+    assert main_branch in submodule_pargit.repo.branches()
 
 
 def test_submodule_version_bump_rust(submodule_pargit):

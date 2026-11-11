@@ -1,7 +1,6 @@
 use crate::{commands::BumpKind, pargit::Pargit};
 
 use anyhow::{bail, Result};
-use dialoguer::theme::{ColorfulTheme, SimpleTheme, Theme};
 use git2::{Branch, ErrorClass};
 use log::{debug, warn};
 use semver::Version;
@@ -60,18 +59,6 @@ pub fn next_version(version: &Version, bump_kind: BumpKind) -> Version {
         BumpKind::Patch => version.increment_patch(),
     }
     version
-}
-
-pub fn get_color_theme() -> Box<dyn Theme> {
-    if std::env::var("PARGIT_DISABLE_COLORS").is_ok() {
-        Box::new(SimpleTheme)
-    } else {
-        Box::<ColorfulTheme>::default()
-    }
-}
-
-pub fn can_ask_questions() -> bool {
-    std::env::var("PARGIT_NON_INTERACTIVE").as_deref() != Ok("1")
 }
 
 const MAX_DELETE_RETRIES: usize = 3;

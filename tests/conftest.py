@@ -6,7 +6,6 @@ import pathlib
 
 import pytest
 import toml
-import pexpect
 
 
 class BranchConfig:
@@ -366,7 +365,6 @@ class Pargit:
         self.binary = binary
         self.repo = repo
         self.env = os.environ.copy()
-        self.env["PARGIT_DISABLE_COLORS"] = "1"
 
     @classmethod
     def on_path(cls, binary, path):
@@ -389,10 +387,6 @@ class Pargit:
             **kwargs,
         )
 
-    def non_interactive(self):
-        self.env["PARGIT_NON_INTERACTIVE"] = "1"
-        return self
-
     def __getattr__(self, attr):
         if attr.startswith("_"):
             raise AttributeError(attr)
@@ -414,17 +408,6 @@ class ExecProxy:
         command.extend(args)
         command.insert(0, "-vvvv")
         return command
-
-    def spawn(self, *args):
-        command = self.get_command(*args)
-        command = [self.pargit.binary] + command
-        return pexpect.spawn(
-            str(command[0]),
-            args=command[1:],
-            logfile=open("/tmp/pexpect_log.log", "wb"),
-            cwd=self.pargit.repo.path,
-            env=self.env,
-        )
 
 
 def make_rust_project(path, name="proj"):

@@ -220,6 +220,25 @@ impl Repository {
             .branch(branch_name.as_ref(), &start_point, force)?)
     }
 
+    pub fn ensure_local_branch(&self, name: &str) -> Result<()> {
+        if self.find_branch(name).is_ok() {
+            return Ok(());
+        }
+        let upstream_name = format!("origin/{name}");
+        let upstream = self
+            .repo
+            .find_branch(&upstream_name, BranchType::Remote)
+            .with_context(|| {
+                format!("Branch '{name}' not found locally, and no remote-tracking branch '{upstream_name}' exists. Try 'git fetch origin'")
+            })?;
+        info!("Creating local branch {name} from {upstream_name}");
+        let mut branch = self
+            .repo
+            .branch(name, &upstream.get().peel_to_commit()?, false)?;
+        branch.set_upstream(Some(&upstream_name))?;
+        Ok(())
+    }
+
     pub fn find_branch(&self, name: impl AsRef<str>) -> Result<Branch<'_>> {
         Ok(self.repo.find_branch(name.as_ref(), BranchType::Local)?)
     }

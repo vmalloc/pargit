@@ -36,26 +36,23 @@ def test_start_from_ref_sanity(pargit, start_type, from_ref, develop_branch):
     assert pargit.repo.current_branch() == f"{start_type}/{started_name}"
 
 
-@pytest.mark.parametrize(
-    "cmd", ["feature start blap", "release version minor", "release start 0.1.0"]
-)
-def test_no_main_branch_ask_create(pargit, cmd, main_branch):
+def test_release_version_creates_missing_local_main_branch(pargit, main_branch):
     pargit.repo.into_rust_project()
     pargit.repo.shell(f"git branch -d {main_branch}")
-    cmd = cmd.split()
-    p = getattr(pargit, cmd[0]).spawn(*cmd[1:])
-    p.expect("Create it?", timeout=3)
-    p.write("y")
-    p.read()
-    assert p.wait() == 0
+    pargit.release_version("minor")
+    assert main_branch in pargit.repo.branches()
 
 
-def test_release_version_no_main_branch_cleans_up_properly(
-    pargit, main_branch, develop_branch
+def test_release_version_fails_without_any_main_branch(
+    pargit, remote_repo, main_branch, develop_branch
 ):
     pargit.repo.shell(f"git branch -d {main_branch}")
-    with pytest.raises(subprocess.CalledProcessError):
-        pargit.non_interactive().release_version_minor()
+    remote_repo.shell(f"git symbolic-ref HEAD refs/heads/{develop_branch}")
+    remote_repo.shell(f"git branch -D {main_branch}")
+    pargit.repo.shell("git fetch --prune")
+    with pytest.raises(subprocess.CalledProcessError) as exc_info:
+        pargit.release_version_minor(capture=True)
+    assert f"origin/{main_branch}" in exc_info.value.stderr
     assert pargit.repo.branches() == {develop_branch}
 
 
