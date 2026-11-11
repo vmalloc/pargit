@@ -3,14 +3,11 @@ use crate::{
     config::Config,
     release::Release,
     repo::Repository,
-    utils::{
-        can_ask_questions, get_color_theme, next_version, ExitStack, ObjectKind, PathExt, ResultExt,
-    },
+    utils::{next_version, ExitStack, ObjectKind, PathExt, ResultExt},
     version_file::VersionFile,
 };
 use anyhow::{bail, format_err, Context, Result};
-use dialoguer::{theme::ColorfulTheme, Confirm, Select};
-use git2::ErrorCode;
+use dialoguer::{theme::ColorfulTheme, Select};
 use log::{debug, error, info, warn};
 use semver::Version;
 use std::{
@@ -60,33 +57,11 @@ impl Pargit {
 
     pub fn check_configuration(&self) -> Result<()> {
         self.repo.find_branch(&self.config.develop_branch_name)?;
-        self.ensure_main_branch().map(drop)
+        Ok(())
     }
 
     fn ensure_main_branch(&self) -> Result<()> {
-        match self.repo.find_branch(&self.config.main_branch_name) {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                if let Some(e) = e.downcast_ref::<git2::Error>() {
-                    if e.code() == ErrorCode::NotFound
-                        && can_ask_questions()
-                        && Confirm::with_theme(get_color_theme().as_ref())
-                            .with_prompt(format!(
-                                "{} branch not found. Create it?",
-                                self.config().main_branch_name
-                            ))
-                            .interact()?
-                    {
-                        self.repo.path().shell(format!(
-                            "git branch {0} origin/{0}",
-                            self.config().main_branch_name
-                        ))?;
-                        return Ok(());
-                    }
-                }
-                Err(e)
-            }
-        }
+        self.repo.ensure_local_branch(&self.config.main_branch_name)
     }
 
     // High-level API
@@ -188,6 +163,9 @@ impl Pargit {
             bail!("{} {} already in progress. Finish it first", kind, name);
         }
 
+        if kind == ObjectKind::Hotfix && from_ref.is_none() {
+            self.ensure_main_branch()?;
+        }
         let start_point = kind.get_start_point(self, from_ref)?;
 
         if kind == ObjectKind::Hotfix && from_ref.is_none() {
@@ -208,6 +186,7 @@ impl Pargit {
         release_kind: ObjectKind,
         options: ReleaseOptions,
     ) -> Result<()> {
+        self.ensure_main_branch()?;
         let start_point = release_kind.get_start_point(self, None)?;
         if !self.repo.is_branch_up_to_date(start_point)? {
             if options.no_pull {
@@ -273,6 +252,7 @@ impl Pargit {
         release_kind: ObjectKind,
         options: ReleaseOptions,
     ) -> Result<()> {
+        self.ensure_main_branch()?;
         let release_name = self.resolve_name(release_kind, release_name)?;
         let release_branch_name = self.prefix(release_kind, &release_name);
         info!("Finishing {} {}", release_kind, release_name);
